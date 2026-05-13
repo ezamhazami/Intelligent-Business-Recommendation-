@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+        --bg:        #4E8076;
+        --bg-light:  rgba(78,128,118,0.15);
+        --header:    #3E513E;
+        --sand:      #F4D9B3;
+        --sand-dim:  rgba(244,217,179,0.55);
+        --rose:      #E6C2C2;
+        --rose-dim:  rgba(230,194,194,0.5);
+        --text:      #2a2a2a;
+        --muted:     #6b6b6b;
+        --border:    rgba(62,81,62,0.18);
+        --accent:    #3E513E;
+        --accent2:   #4E8076;
+        --gold:      #c8843a;
+        --radius:    16px;
+        --tr:        all 0.22s ease;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            gap: 18px;
+            padding: 24px 32px 28px;
+            max-width: 2000px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .navigation {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .navigation a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            position: relative; 
+            overflow: hidden;
+        }
+
+        .navigation a::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .navigation a:hover::before {
+            left: 100%;
+        }
+
+        .navigation a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* ── CHAT PANEL ── */
+        .chat-wrap {
+        flex: 2;
+        background: var(--sand-dim);
+        border-radius: var(--radius);
+        border: 1px solid rgba(244,217,179,0.7);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        height: 580px;
+        overflow: hidden;
+        box-shadow: 0 4px 28px rgba(62,81,62,0.08);
+        }
+
+        .panel-header {
+        padding: 16px 22px 12px;
+        background-color: #3E513E;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        }
+        
+        
+        .panel-header h2 {
+            font-family: 'Inter', sans-serif; /* Clean, highly readable */
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #F4D9B3;
+            letter-spacing: -0.01em;
+            padding-left: 12px;
+            border-left: 3px solid #eaeaf0; /* A pop of color */
+            text-transform: none;
+        }
+
+        .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 22px 10px;
+        scroll-behavior: smooth;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        }
+        .messages::-webkit-scrollbar { width: 3px; }
+        .messages::-webkit-scrollbar-thumb { background: rgba(62,81,62,0.2); border-radius: 4px; }
+
+        /* ── Message bubbles ── */
+        .msg { display: flex; gap: 10px; animation: fadeUp 0.28s ease both; }
+        .msg.user { flex-direction: row-reverse; }
+
+        @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .avatar {
+        width: 34px; height: 34px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+        }
+        .avatar-img {width: 50px; height: 50px;}
+        .avatar.bot  { background: var(--header); }
+        .avatar.user-av { background: linear-gradient(135deg, #7a5c3e, #a07850); }
+
+        .bubble {
+        max-width: 80%;
+        padding: 11px 15px;
+        border-radius: 14px;
+        font-size: 0.86rem;
+        line-height: 1.65;
+        }
+        .bubble.bot {
+        background: #fff;
+        border: 1px solid rgba(62,81,62,0.12);
+        border-top-left-radius: 4px;
+        color: var(--text);
+        }
+        .bubble.user {
+        background: var(--header);
+        color: var(--sand);
+        border-top-right-radius: 4px;
+        }
+        .bubble strong { color: var(--accent2); }
+        .bubble em { color: var(--gold); font-style: normal; font-weight: 600; }
+
+        .typing { display: flex; gap: 5px; align-items: center; padding: 3px 2px; }
+        .typing span {
+        width: 7px; height: 7px;
+        background: var(--muted);
+        border-radius: 50%;
+        animation: blink 1.4s infinite;
+        }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+        /* ── Quick actions ── */
+        .quick-actions {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        padding: 10px 22px 8px;
+        border-top: 1px solid var(--border);
+        }
+        .qa-btn {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.72rem;
+        background: rgba(255,255,255,0.6);
+        border: 1px solid rgba(62,81,62,0.2);
+        color: var(--accent);
+        padding: 5px 13px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: var(--tr);
+        white-space: nowrap;
+        font-weight: 500;
+        }
+        .qa-btn:hover {
+        background: var(--header);
+        color: var(--sand);
+        border-color: var(--header);
+        }
+
+        /* ── Input bar ── */
+        .input-bar {
+        padding: 12px 22px 18px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        }
+        .input-wrap {
+        flex: 1;
+        background: #fff;
+        border: 1px solid rgba(62,81,62,0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        transition: var(--tr);
+        padding: 0 14px;
+        }
+        .input-wrap:focus-within {
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px rgba(78,128,118,0.12);
+        }
+        #userInput {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.87rem;
+        padding: 12px 0;
+        resize: none;
+        max-height: 110px;
+        line-height: 1.5;
+        }
+        #userInput::placeholder { color: #aaa; }
+
+        .send-btn {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        background: var(--header);
+        border: none;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: var(--tr);
+        flex-shrink: 0;
+        font-size: 1rem;
+        color: var(--sand);
+        }
+        .send-btn:hover { background: var(--accent2); transform: scale(1.05); }
+        .send-btn:active { transform: scale(0.96); }
+
+        /* ── INFO PANEL ── */
+        .info-wrap {
+        flex: 1;
+        background-color: white;
+        border-radius: var(--radius);
+        border: 1px solid rgba(230,194,194,0.75);
+        backdrop-filter: blur(8px);
+        height: 580px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 4px 28px rgba(62,81,62,0.07);
+        }
+
+        .rec-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 20px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        }
+        .rec-panel::-webkit-scrollbar { width: 3px; }
+        .rec-panel::-webkit-scrollbar-thumb { background: rgba(62,81,62,0.15); border-radius: 4px; }
+
+        .panel-title {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        text-transform: uppercase;
+        }
+
+        /* empty state */
+        .empty-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 12px;
+        color: var(--muted);
+        }
+        .empty-icon { font-size: 2.8rem; opacity: 0.4; }
+        .empty-state p { font-size: 0.8rem; line-height: 1.65; color: var(--muted); }
+
+        /* ── Top pick card ── */
+        .top-pick {
+        background: var(--header);
+        border-radius: 12px;
+        padding: 16px;
+        color: var(--sand);
+        }
+        .top-pick-label { font-size: 0.72rem; opacity: 0.65; margin-bottom: 4px; }
+        .top-pick-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        }
+        .confidence-bar-wrap {
+        background: rgba(255,255,255,0.15);
+        border-radius: 6px;
+        height: 7px;
+        overflow: hidden;
+        margin-bottom: 5px;
+        }
+        .confidence-bar {
+        height: 100%;
+        background: var(--sand);
+        border-radius: 6px;
+        width: 0;
+        transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+        }
+        .confidence-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.72rem;
+        opacity: 0.65;
+        }
+
+        /* pred list */
+        .pred-list { display: flex; flex-direction: column; gap: 8px; }
+        .pred-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 9px 12px;
+        border: 1px solid rgba(62,81,62,0.1);
+        }
+        .pred-icon { font-size: 1.1rem; }
+        .pred-info { flex: 1; }
+        .pred-name { font-size: 0.78rem; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+        .pred-bar-wrap {
+        background: rgba(62,81,62,0.08);
+        border-radius: 4px;
+        height: 5px;
+        overflow: hidden;
+        }
+        .pred-bar {
+        height: 100%;
+        background: var(--accent2);
+        border-radius: 4px;
+        width: 0;
+        transition: width 0.8s cubic-bezier(0.4,0,0.2,1) 0.2s;
+        }
+        .pred-pct { font-size: 0.74rem; font-weight: 600; color: var(--muted); }
+
+        /* feature cards */
+        .feature-cards { display: flex; flex-direction: column; gap: 7px; }
+        .feat-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255,255,255,0.7);
+        border-radius: 10px;
+        padding: 9px 12px;
+        border: 1px solid rgba(62,81,62,0.1);
+        }
+        .feat-rank {
+        width: 22px; height: 22px;
+        background: var(--header);
+        color: var(--sand);
+        border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        }
+        .feat-info { flex: 1; }
+        .feat-name { font-size: 0.77rem; font-weight: 600; color: var(--text); }
+        .feat-desc { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+        .feat-imp { font-size: 0.74rem; font-weight: 700; color: var(--accent2); }
+
+        /* stats grid */
+        .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        }
+        .stat-card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 11px 12px;
+        border: 1px solid rgba(62,81,62,0.1);
+        text-align: center;
+        }
+        .stat-val { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; color: var(--accent); }
+        .stat-lbl { font-size: 0.67rem; color: var(--muted); margin-top: 2px; }
+
+    </style>
+</head>
+
+<body>
+    <div class="min-h-screen flex flex-col bg-[#4E8076]/20">
+        <div class="bg-[#3E513E] flex justify-between ">
+            <div class="ml-32 mt-5 mb-6 flex items-center gap-3">   
+             <div class="text-4xl">
+                 <p>🌎</p>
+             </div>
+             <div>
+                <h1 class="text-[#F4D9B3] font-semibold text-lg">AI Shah Alam Business Advisor</h1>
+                <P class="text-white text-s text-muted-foreground flex items-center gap-1">📍Your go to Business Advisor</P>
+             </div>
+            </div>
+            <div class="flex mr-20">
+                <nav class="navigation">
+                    <a href="/">Find Tutor</a>
+                    <a href="/">AI Academic Assistance</a>
+                    <a href="/">Study Resources</a>
+                    <a href="/">Tutor Match</a>
+                </nav>
+            </div>
+        </div>
+        <div class="main">
+            <!-- CHAT PANEL -->
+            <div class="chat-wrap">
+                <div class="panel-header">
+                <h2>Chatbot</h2>
+                </div>
+                <div class="messages" id="messages"></div>
+                <div class="quick-actions">
+                <button class="qa-btn" onclick="sendQuick('Recommend a business for Section 7')">📍 Section 7</button>
+                <button class="qa-btn" onclick="sendQuick('What business should I open in Section 14?')">📍 Section 14</button>
+                <button class="qa-btn" onclick="sendQuick('Best business for Section 9')">📍 Section 9</button>
+                <button class="qa-btn" onclick="sendQuick('Show me model accuracy')">📊 Model Stats</button>
+                <button class="qa-btn" onclick="sendQuick('List all sections')">📋 All Sections</button>
+                </div>
+                <div class="input-bar">
+                <div class="input-wrap">
+                    <textarea id="userInput" rows="1"
+                    placeholder="Ask about a section, e.g. 'What business for Section 13?'"
+                    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                </div>
+                <button class="send-btn" onclick="sendMessage()" title="Send">➤</button>
+                </div>
+            </div>
+
+            <!-- INFO PANEL -->
+            <div class="info-wrap">
+                <div class="panel-header">
+                <h2>Info Side</h2>
+                </div>
+                <div class="rec-panel" id="recPanel">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🗺️</div>
+                    <p><strong>No recommendation yet</strong><br>Ask me about any section in Shah Alam to see detailed predictions and feature analysis here.</p>
+                </div>
+                </div>
+            </div>
+        
+        </div>
+
+    </div>
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const recPanel   = document.getElementById('recPanel');
+      
+        const BUSINESS_ICONS = {
+          "Food & Beverage":       "🍜",
+          "Retail":                "🛍️",
+          "Professional Services": "💼",
+          "Entertainment":         "🎭",
+          "Health & Wellness":     "🏥",
+          "Education Support":     "📚",
+          "Automotive":            "🔧",
+          "Financial Services":    "💰",
+          "Hospitality":           "🏨",
+        };
+      
+        const FEATURE_LABELS = {
+          "food_beverage":           "Food & Beverage",
+          "retail_outlet":           "Retail Outlets",
+          "service_business":        "Service Businesses",
+          "entertainment":           "Entertainment",
+          "educational_inst":        "Education Institutions",
+          "residential_area":        "Residential Areas",
+          "corporate_office":        "Corporate Offices",
+          "financial_inst":          "Financial Institutions",
+          "hotel":                   "Hotels",
+          "shopping_mall":           "Shopping Malls",
+          "workshop":                "Automotive Workshops",
+          "amenity_diversity_index": "Diversity Index",
+        };
+      
+        let modelStats = {};
+        fetch('/api/model-stats').then(r => r.json()).then(data => {
+            // data is nested under "random_forest"
+            modelStats = data.random_forest || data;
+        }).catch(() => {});
+      
+        window.addEventListener('load', () => {
+          addBotMessage(
+            "Hello! I'm your **Shah Alam Business Advisor** 👋\n\n" +
+            "I use a **Random Forest** machine learning model trained on geospatial data " +
+            "from all 56 sections of Shah Alam to recommend the best business opportunity " +
+            "for any location.\n\n" +
+            "Try: *'What business should I open in Section 7?'*"
+          );
+        });
+      
+        function renderMarkdown(text) {
+          return text
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n•/g, '<br>•')
+            .replace(/\n-/g, '<br>-')
+            .replace(/\n/g, '<br>');
+        }
+      
+        function addBotMessage(text) {
+          const msg = document.createElement('div');
+          msg.className = 'msg';
+          msg.innerHTML = `
+            <img class="avatar-img" src="/static/bot.png" alt="bot avatar">
+            <div class="bubble bot"><p>${renderMarkdown(text)}</p></div>
+          `;
+          messagesEl.appendChild(msg);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      
+        function addUserMessage(text) {
+          const msg = document.createElement('div');
+          msg.className = 'msg user';
+          msg.innerHTML = `
+            <div class="avatar user-av">👤</div>
+            <div class="bubble user">${text}</div>
+          `;
+          messagesEl.appendChild(msg);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      
+        function addTyping() {
+          const el = document.createElement('div');
+          el.className = 'msg'; el.id = 'typing';
+          el.innerHTML = `
+            <img class="avatar-img" src="/static/bot.png" alt="bot avatar">
+            <div class="bubble bot"><div class="typing"><span></span><span></span><span></span></div></div>
+          `;
+          messagesEl.appendChild(el);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return el;
+        }
+      
+        function renderRecPanel(pred) {
+          const top    = pred.top3_predictions[0];
+          const icon   = BUSINESS_ICONS[top[0]] || '📊';
+          const others = pred.top3_predictions.slice(1);
+          const feats  = pred.top3_features;
+      
+          recPanel.innerHTML = `
+            <div class="panel-title">📍 ${pred.section} · Business Recommendations</div>
+      
+            <div class="top-pick">
+              <div class="top-pick-label">${icon} Top Recommendation</div>
+              <div class="top-pick-name">${top[0]}</div>
+              <div style="font-size:0.72rem;opacity:0.55;margin-bottom:10px">Based on 12 geospatial features</div>
+              <div class="confidence-bar-wrap">
+                <div class="confidence-bar" id="confBar"></div>
+              </div>
+              <div class="confidence-label">
+                <span>Confidence</span>
+                <span>${top[1]}%</span>
+              </div>
+            </div>
+      
+            <div>
+              <div class="panel-title" style="margin-bottom:10px">Other predictions</div>
+              <div class="pred-list">
+                ${others.map((p, i) => `
+                  <div class="pred-item">
+                    <div class="pred-icon">${BUSINESS_ICONS[p[0]] || '📊'}</div>
+                    <div class="pred-info">
+                      <div class="pred-name">${p[0]}</div>
+                      <div class="pred-bar-wrap">
+                        <div class="pred-bar" id="pbar${i}" style="width:0"></div>
+                      </div>
+                    </div>
+                    <div class="pred-pct">${p[1]}%</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+      
+            <div>
+              <div class="panel-title" style="margin-bottom:10px">Top 3 Feature Importance</div>
+              <div class="feature-cards">
+                ${feats.map((f, i) => `
+                  <div class="feat-card">
+                    <div class="feat-rank">${i+1}</div>
+                    <div class="feat-info">
+                      <div class="feat-name">${FEATURE_LABELS[f[0]] || f[0]}</div>
+                      <div class="feat-desc">Count: ${pred.section_data[f[0]]}</div>
+                    </div>
+                    <div class="feat-imp">${(f[1]*100).toFixed(1)}%</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+      
+            <div>
+              <div class="panel-title" style="margin-bottom:10px">Model Performance</div>
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-val">${modelStats.cv_accuracy_mean ? (modelStats.cv_accuracy_mean*100).toFixed(1)+'%' : '—'}</div>
+                  <div class="stat-lbl">CV Accuracy</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-val">${modelStats.cv_f1_mean ? (modelStats.cv_f1_mean*100).toFixed(1)+'%' : '—'}</div>
+                  <div class="stat-lbl">F1 Score</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-val">${modelStats.cv_precision_mean ? (modelStats.cv_precision_mean*100).toFixed(1)+'%' : '—'}</div>
+                  <div class="stat-lbl">Precision</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-val">${modelStats.cv_recall_mean ? (modelStats.cv_recall_mean*100).toFixed(1)+'%' : '—'}</div>
+                  <div class="stat-lbl">Recall</div>
+                </div>
+              </div>
+            </div>
+          `;
+      
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              const cb = document.getElementById('confBar');
+              if (cb) cb.style.width = top[1] + '%';
+              others.forEach((p, i) => {
+                const el = document.getElementById('pbar' + i);
+                if (el) el.style.width = p[1] + '%';
+              });
+            }, 120);
+          });
+        }
+      
+        async function sendMessage() {
+          const input = document.getElementById('userInput');
+          const text  = input.value.trim();
+          if (!text) return;
+          addUserMessage(text);
+          input.value = '';
+          input.style.height = 'auto';
+          const typing = addTyping();
+          try {
+            const res  = await fetch('/api/recommend', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: text }),
+            });
+            const data = await res.json();
+            typing.remove();
+            addBotMessage(data.message || 'Sorry, I could not process that.');
+            if (data.prediction) renderRecPanel(data.prediction);
+          } catch (e) {
+            typing.remove();
+            addBotMessage('⚠️ Could not connect to the server. Make sure Flask is running.');
+          }
+        }
+      
+        function sendQuick(text) {
+          document.getElementById('userInput').value = text;
+          sendMessage();
+        }
+        function handleKey(e) {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        }
+        function autoResize(el) {
+          el.style.height = 'auto';
+          el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+        }
+      </script>
+</body>
+</html>
