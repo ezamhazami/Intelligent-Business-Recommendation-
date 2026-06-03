@@ -3,421 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatbot</title>
+    <title>Shah Alam Business Advisor</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💼</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         :root {
-        --bg:        #4E8076;
-        --bg-light:  rgba(78,128,118,0.15);
-        --header:    #3E513E;
-        --sand:      #F4D9B3;
-        --sand-dim:  rgba(244,217,179,0.55);
-        --rose:      #E6C2C2;
-        --rose-dim:  rgba(230,194,194,0.5);
-        --text:      #2a2a2a;
-        --muted:     #6b6b6b;
-        --border:    rgba(62,81,62,0.18);
-        --accent:    #3E513E;
-        --accent2:   #4E8076;
-        --gold:      #c8843a;
-        --radius:    16px;
-        --tr:        all 0.22s ease;
+            --bg:        oklch(0.93 0.02 155);
+            --bg-light:  oklch(0.93 0.02 155 / 0.15);
+            --header:    oklch(0.36 0.05 140);
+            --sand:      oklch(0.96 0.02 90);
+            --sand-dim:  oklch(0.96 0.02 90 / 0.55);
+            --text:      oklch(0.25 0.03 140);
+            --muted:     oklch(0.45 0.02 140);
+            --border:    oklch(0.85 0.02 140);
+            --accent:    oklch(0.36 0.05 140);
+            --accent2:   oklch(0.55 0.12 165);
+            --gold:      oklch(0.82 0.1 80);
+            --card:      oklch(1 0 0);
+            --muted-bg:  oklch(0.92 0.015 140);
+            --chip:      oklch(0.97 0.01 90);
+            --radius:    16px;
+            --tr:        all 0.22s ease;
         }
+        body { background-color: var(--bg); color: var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+        .main { flex:1; display:flex; gap:18px; padding:16px 32px 20px; max-width:2000px; width:100%; margin:0 auto; min-height:0; }
+        .navigation { display:flex; align-items:center; gap:30px; }
+        .navigation a { color:white; text-decoration:none; font-weight:500; font-size:16px; padding:10px 20px; border-radius:25px; transition:all 0.3s ease; position:relative; overflow:hidden; }
+        .navigation a:hover { background:rgba(255,255,255,0.1); transform:translateY(-2px); }
 
-        .main {
-            flex: 1;
-            display: flex;
-            gap: 18px;
-            padding: 24px 32px 28px;
-            max-width: 2000px;
-            width: 100%;
-            margin: 0 auto;
-        }
-        .navigation {
-            display: flex;
-            align-items: center;
-            gap: 30px;
-        }
+        /* CHAT PANEL */
+        .chat-wrap { flex:2; background:var(--sand-dim); border-radius:var(--radius); border:1px solid oklch(0.85 0.02 140); backdrop-filter:blur(8px); display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; box-shadow:0 4px 28px oklch(0.36 0.05 140 / 0.08); }
+        .panel-header { padding:16px 22px 12px; background-color:var(--header); display:flex; align-items:center; gap:10px; }
+        .panel-header h2 { font-family:'Inter',sans-serif; font-size:1.1rem; font-weight:600; color:var(--sand); letter-spacing:-0.01em; padding-left:12px; border-left:3px solid #dcba5c; }
+        .messages { flex:1; overflow-y:auto; padding:20px 22px 10px; scroll-behavior:smooth; display:flex; flex-direction:column; gap:14px; }
+        .messages::-webkit-scrollbar { width:3px; }
+        .messages::-webkit-scrollbar-thumb { background:oklch(0.36 0.05 140 / 0.2); border-radius:4px; }
+        .msg { display:flex; gap:10px; animation:fadeUp 0.28s ease both; }
+        .msg.user { flex-direction:row-reverse; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .avatar { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.95rem; flex-shrink:0; margin-top:2px; }
+        .avatar-img { width:50px; height:50px; }
+        .avatar.bot  { background:var(--header); }
+        .avatar.user-av { background:linear-gradient(135deg,#7a5c3e,#a07850); }
+        .bubble { max-width:80%; padding:11px 15px; border-radius:14px; font-size:0.86rem; line-height:1.65; }
+        .bubble.bot { background:var(--card); border:1px solid oklch(0.36 0.05 140 / 0.12); border-top-left-radius:4px; color:var(--text); }
+        .bubble.user { background:var(--header); color:var(--sand); border-top-right-radius:4px; }
+        .bubble strong { color:var(--accent2); }
+        .bubble em { color:var(--gold); font-style:normal; font-weight:600; }
+        .bubble p + p { margin-top:8px; }
 
-        .navigation a {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 16px;
-            padding: 10px 20px;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-            position: relative; 
-            overflow: hidden;
-        }
+        /* Competitor cards */
+        .competitor-section { margin-top:12px; border-top:1px solid oklch(0.85 0.02 140); padding-top:10px; }
+        .competitor-label { font-size:0.68rem; font-weight:700; letter-spacing:0.08em; color:var(--muted); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+        .competitor-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; scrollbar-width:none; }
+        .competitor-row::-webkit-scrollbar { display:none; }
+        .competitor-card { min-width:175px; max-width:175px; background:var(--sand-dim); border-radius:12px; border:1px solid oklch(0.88 0.03 90); overflow:hidden; flex-shrink:0; transition:transform 0.18s,box-shadow 0.18s; }
+        .competitor-card:hover { transform:translateY(-2px); box-shadow:0 6px 16px oklch(0.36 0.05 140 / 0.14); }
+        .comp-photo-wrap { position:relative; width:100%; height:95px; }
+        .comp-photo { width:100%; height:95px; object-fit:cover; background:oklch(0.88 0.015 140); display:flex; align-items:center; justify-content:center; font-size:2rem; color:var(--muted); }
+        .comp-photo img { width:100%; height:95px; object-fit:cover; display:block; }
+        .comp-open { position:absolute; top:7px; left:7px; font-size:0.6rem; font-weight:700; padding:3px 8px; border-radius:20px; }
+        .comp-open.open   { background:oklch(0.35 0.12 150); color:white; }
+        .comp-open.closed { background:oklch(0.35 0.1 25);  color:white; }
+        .comp-info { padding:9px 10px 10px; }
+        .comp-name { font-size:0.74rem; font-weight:600; color:var(--text); overflow:hidden; max-height:2.5em; line-height:1.25em; margin-bottom:4px; }
+        .comp-rating { font-size:0.68rem; color:var(--text); font-weight:500; margin-bottom:3px; display:flex; align-items:center; gap:3px; }
+        .comp-rating .star { color:var(--gold); }
+        .comp-address { font-size:0.62rem; color:var(--muted); overflow:hidden; max-height:2.4em; line-height:1.2em; }
+        .comp-loading { font-size:0.72rem; color:var(--muted); padding:6px 0; display:flex; align-items:center; gap:6px; }
 
-        .navigation a::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
+        /* Biz block separator */
+        .biz-block { border-top:1px dashed oklch(0.85 0.02 140); padding-top:10px; margin-top:10px; }
+        .biz-block:first-of-type { border-top:none; margin-top:0; }
 
-        .navigation a:hover::before {
-            left: 100%;
-        }
-
-        .navigation a:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-        }
-
-        /* ── CHAT PANEL ── */
-        .chat-wrap {
-        flex: 2;
-        background: var(--sand-dim);
-        border-radius: var(--radius);
-        border: 1px solid rgba(244,217,179,0.7);
-        backdrop-filter: blur(8px);
-        display: flex;
-        flex-direction: column;
-        height: 580px;
-        overflow: hidden;
-        box-shadow: 0 4px 28px rgba(62,81,62,0.08);
-        }
-
-        .panel-header {
-        padding: 16px 22px 12px;
-        background-color: #3E513E;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        }
-        
-        
-        .panel-header h2 {
-            font-family: 'Inter', sans-serif; /* Clean, highly readable */
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #F4D9B3;
-            letter-spacing: -0.01em;
-            padding-left: 12px;
-            border-left: 3px solid #eaeaf0; /* A pop of color */
-            text-transform: none;
-        }
-
-        .messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px 22px 10px;
-        scroll-behavior: smooth;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        }
-        .messages::-webkit-scrollbar { width: 3px; }
-        .messages::-webkit-scrollbar-thumb { background: rgba(62,81,62,0.2); border-radius: 4px; }
-
-        /* ── Message bubbles ── */
-        .msg { display: flex; gap: 10px; animation: fadeUp 0.28s ease both; }
-        .msg.user { flex-direction: row-reverse; }
-
-        @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .avatar {
-        width: 34px; height: 34px;
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.95rem;
-        flex-shrink: 0;
-        margin-top: 2px;
-        }
-        .avatar-img {width: 50px; height: 50px;}
-        .avatar.bot  { background: var(--header); }
-        .avatar.user-av { background: linear-gradient(135deg, #7a5c3e, #a07850); }
-
-        .bubble {
-        max-width: 80%;
-        padding: 11px 15px;
-        border-radius: 14px;
-        font-size: 0.86rem;
-        line-height: 1.65;
-        }
-        .bubble.bot {
-        background: #fff;
-        border: 1px solid rgba(62,81,62,0.12);
-        border-top-left-radius: 4px;
-        color: var(--text);
-        }
-        .bubble.user {
-        background: var(--header);
-        color: var(--sand);
-        border-top-right-radius: 4px;
-        }
-        .bubble strong { color: var(--accent2); }
-        .bubble em { color: var(--gold); font-style: normal; font-weight: 600; }
-
-        .typing { display: flex; gap: 5px; align-items: center; padding: 3px 2px; }
-        .typing span {
-        width: 7px; height: 7px;
-        background: var(--muted);
-        border-radius: 50%;
-        animation: blink 1.4s infinite;
-        }
-        .typing span:nth-child(2) { animation-delay: 0.2s; }
-        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        .typing { display:flex; gap:5px; align-items:center; padding:3px 2px; }
+        .typing span { width:7px; height:7px; background:var(--muted); border-radius:50%; animation:blink 1.4s infinite; }
+        .typing span:nth-child(2) { animation-delay:0.2s; }
+        .typing span:nth-child(3) { animation-delay:0.4s; }
         @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
 
-        /* ── Quick actions ── */
-        .quick-actions {
-        display: flex;
-        gap: 7px;
-        flex-wrap: wrap;
-        padding: 10px 22px 8px;
-        border-top: 1px solid var(--border);
-        }
-        .qa-btn {
-        font-family: 'DM Sans', sans-serif;
-        font-size: 0.72rem;
-        background: rgba(255,255,255,0.6);
-        border: 1px solid rgba(62,81,62,0.2);
-        color: var(--accent);
-        padding: 5px 13px;
-        border-radius: 20px;
-        cursor: pointer;
-        transition: var(--tr);
-        white-space: nowrap;
-        font-weight: 500;
-        }
-        .qa-btn:hover {
-        background: var(--header);
-        color: var(--sand);
-        border-color: var(--header);
-        }
+        .quick-actions { display:flex; gap:7px; flex-wrap:wrap; padding:10px 22px 8px; border-top:1px solid var(--border); }
+        .qa-btn { font-family:'DM Sans',sans-serif; font-size:0.72rem; background:var(--chip); border:1px solid oklch(0.85 0.02 140); color:var(--accent); padding:5px 13px; border-radius:20px; cursor:pointer; transition:var(--tr); white-space:nowrap; font-weight:500; }
+        .qa-btn:hover { background:var(--header); color:var(--sand); border-color:var(--header); }
 
-        /* ── Input bar ── */
-        .input-bar {
-        padding: 12px 22px 18px;
-        display: flex;
-        gap: 10px;
-        align-items: flex-end;
-        }
-        .input-wrap {
-        flex: 1;
-        background: #fff;
-        border: 1px solid rgba(62,81,62,0.2);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        transition: var(--tr);
-        padding: 0 14px;
-        }
-        .input-wrap:focus-within {
-        border-color: var(--accent2);
-        box-shadow: 0 0 0 3px rgba(78,128,118,0.12);
-        }
-        #userInput {
-        flex: 1;
-        background: transparent;
-        border: none;
-        outline: none;
-        color: var(--text);
-        font-family: 'DM Sans', sans-serif;
-        font-size: 0.87rem;
-        padding: 12px 0;
-        resize: none;
-        max-height: 110px;
-        line-height: 1.5;
-        }
-        #userInput::placeholder { color: #aaa; }
+        .input-bar { padding:12px 22px 18px; display:flex; gap:10px; align-items:flex-end; }
+        .input-wrap { flex:1; background:var(--card); border:1px solid oklch(0.85 0.02 140); border-radius:12px; display:flex; align-items:center; transition:var(--tr); padding:0 14px; }
+        .input-wrap:focus-within { border-color:var(--accent2); box-shadow:0 0 0 3px oklch(0.55 0.12 165 / 0.12); }
+        #userInput { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.87rem; padding:12px 0; resize:none; max-height:110px; line-height:1.5; }
+        #userInput::placeholder { color:oklch(0.65 0.02 140); }
+        .send-btn { width:44px; height:44px; border-radius:12px; background:var(--header); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--tr); flex-shrink:0; font-size:1rem; color:var(--sand); }
+        .send-btn:hover { background:var(--accent2); transform:scale(1.05); }
+        .send-btn:active { transform:scale(0.96); }
 
-        .send-btn {
-        width: 44px; height: 44px;
-        border-radius: 12px;
-        background: var(--header);
-        border: none;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        transition: var(--tr);
-        flex-shrink: 0;
-        font-size: 1rem;
-        color: var(--sand);
-        }
-        .send-btn:hover { background: var(--accent2); transform: scale(1.05); }
-        .send-btn:active { transform: scale(0.96); }
-
-        /* ── INFO PANEL ── */
-        .info-wrap {
-        flex: 1;
-        background-color: white;
-        border-radius: var(--radius);
-        border: 1px solid rgba(230,194,194,0.75);
-        backdrop-filter: blur(8px);
-        height: 580px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 4px 28px rgba(62,81,62,0.07);
-        }
-
-        .rec-panel {
-        flex: 1;
-        overflow-y: auto;
-        padding: 18px 20px 22px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        }
-        .rec-panel::-webkit-scrollbar { width: 3px; }
-        .rec-panel::-webkit-scrollbar-thumb { background: rgba(62,81,62,0.15); border-radius: 4px; }
-
-        .panel-title {
-        font-family: 'Syne', sans-serif;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        color: var(--muted);
-        text-transform: uppercase;
-        }
-
-        /* empty state */
-        .empty-state {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        gap: 12px;
-        color: var(--muted);
-        }
-        .empty-icon { font-size: 2.8rem; opacity: 0.4; }
-        .empty-state p { font-size: 0.8rem; line-height: 1.65; color: var(--muted); }
-
-        /* ── Top pick card ── */
-        .top-pick {
-        background: var(--header);
-        border-radius: 12px;
-        padding: 16px;
-        color: var(--sand);
-        }
-        .top-pick-label { font-size: 0.72rem; opacity: 0.65; margin-bottom: 4px; }
-        .top-pick-name {
-        font-family: 'Syne', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-        }
-        .confidence-bar-wrap {
-        background: rgba(255,255,255,0.15);
-        border-radius: 6px;
-        height: 7px;
-        overflow: hidden;
-        margin-bottom: 5px;
-        }
-        .confidence-bar {
-        height: 100%;
-        background: var(--sand);
-        border-radius: 6px;
-        width: 0;
-        transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
-        }
-        .confidence-label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.72rem;
-        opacity: 0.65;
-        }
-
-        /* pred list */
-        .pred-list { display: flex; flex-direction: column; gap: 8px; }
-        .pred-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: #fff;
-        border-radius: 10px;
-        padding: 9px 12px;
-        border: 1px solid rgba(62,81,62,0.1);
-        }
-        .pred-icon { font-size: 1.1rem; }
-        .pred-info { flex: 1; }
-        .pred-name { font-size: 0.78rem; font-weight: 600; color: var(--text); margin-bottom: 3px; }
-        .pred-bar-wrap {
-        background: rgba(62,81,62,0.08);
-        border-radius: 4px;
-        height: 5px;
-        overflow: hidden;
-        }
-        .pred-bar {
-        height: 100%;
-        background: var(--accent2);
-        border-radius: 4px;
-        width: 0;
-        transition: width 0.8s cubic-bezier(0.4,0,0.2,1) 0.2s;
-        }
-        .pred-pct { font-size: 0.74rem; font-weight: 600; color: var(--muted); }
-
-        /* feature cards */
-        .feature-cards { display: flex; flex-direction: column; gap: 7px; }
-        .feat-card {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: rgba(255,255,255,0.7);
-        border-radius: 10px;
-        padding: 9px 12px;
-        border: 1px solid rgba(62,81,62,0.1);
-        }
-        .feat-rank {
-        width: 22px; height: 22px;
-        background: var(--header);
-        color: var(--sand);
-        border-radius: 6px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-        flex-shrink: 0;
-        }
-        .feat-info { flex: 1; }
-        .feat-name { font-size: 0.77rem; font-weight: 600; color: var(--text); }
-        .feat-desc { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
-        .feat-imp { font-size: 0.74rem; font-weight: 700; color: var(--accent2); }
-
-        /* stats grid */
-        .stats-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        }
-        .stat-card {
-        background: #fff;
-        border-radius: 10px;
-        padding: 11px 12px;
-        border: 1px solid rgba(62,81,62,0.1);
-        text-align: center;
-        }
-        .stat-val { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; color: var(--accent); }
-        .stat-lbl { font-size: 0.67rem; color: var(--muted); margin-top: 2px; }
-
+        /* INFO PANEL */
+        .info-wrap { flex:1; background-color:var(--card); border-radius:var(--radius); border:1px solid oklch(0.85 0.02 140); height:100%; min-height:0; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 4px 28px oklch(0.36 0.05 140 / 0.07); }
+        .rec-panel { flex:1; overflow-y:auto; padding:18px 20px 22px; display:flex; flex-direction:column; gap:16px; }
+        .rec-panel::-webkit-scrollbar { width:3px; }
+        .rec-panel::-webkit-scrollbar-thumb { background:oklch(0.36 0.05 140 / 0.15); border-radius:4px; }
+        .panel-title { font-family:'Syne',sans-serif; font-size:0.68rem; font-weight:700; letter-spacing:0.12em; color:var(--muted); text-transform:uppercase; }
+        .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:12px; color:var(--muted); }
+        .empty-icon { font-size:2.8rem; opacity:0.4; }
+        .empty-state p { font-size:0.8rem; line-height:1.65; }
+        .top-pick { background:var(--header); border-radius:12px; padding:16px; color:var(--sand); }
+        .top-pick-label { font-size:0.72rem; opacity:0.65; margin-bottom:4px; }
+        .top-pick-name { font-family:'Syne',sans-serif; font-size:1.1rem; font-weight:700; margin-bottom:10px; }
+        .confidence-bar-wrap { background:rgba(255,255,255,0.15); border-radius:6px; height:7px; overflow:hidden; margin-bottom:5px; }
+        .confidence-bar { height:100%; background:var(--gold); border-radius:6px; width:0; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); }
+        .confidence-label { display:flex; justify-content:space-between; font-size:0.72rem; opacity:0.65; }
+        .pred-list { display:flex; flex-direction:column; gap:8px; }
+        .pred-item { display:flex; align-items:center; gap:10px; background:var(--muted-bg); border-radius:10px; padding:9px 12px; border:1px solid var(--border); }
+        .pred-icon { font-size:1.1rem; }
+        .pred-info { flex:1; }
+        .pred-name { font-size:0.78rem; font-weight:600; color:var(--text); margin-bottom:3px; }
+        .pred-bar-wrap { background:oklch(0.36 0.05 140 / 0.08); border-radius:4px; height:5px; overflow:hidden; }
+        .pred-bar { height:100%; background:var(--accent2); border-radius:4px; width:0; transition:width 0.8s cubic-bezier(0.4,0,0.2,1) 0.2s; }
+        .pred-pct { font-size:0.74rem; font-weight:600; color:var(--muted); }
+        .feature-cards { display:flex; flex-direction:column; gap:7px; }
+        .feat-card { display:flex; align-items:center; gap:10px; background:oklch(0.97 0.01 90 / 0.7); border-radius:10px; padding:9px 12px; border:1px solid var(--border); }
+        .feat-rank { width:22px; height:22px; background:var(--header); color:var(--sand); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; flex-shrink:0; }
+        .feat-info { flex:1; }
+        .feat-name { font-size:0.77rem; font-weight:600; color:var(--text); }
+        .feat-desc { font-size:0.68rem; color:var(--muted); margin-top:1px; }
+        .feat-imp { font-size:0.74rem; font-weight:700; color:var(--accent2); }
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .stat-card { background:var(--card); border-radius:10px; padding:11px 12px; border:1px solid var(--border); text-align:center; }
+        .stat-val { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--accent); }
+        .stat-lbl { font-size:0.67rem; color:var(--muted); margin-top:2px; }
     </style>
 </head>
-
 <body>
-    <div class="min-h-screen flex flex-col bg-[#4E8076]/20">
-        <div class="bg-[#3E513E] flex justify-between ">
-            <div class="ml-32 mt-5 mb-6 flex items-center gap-3">   
-             <div class="text-4xl">
-                 <p>🌎</p>
-             </div>
-             <div>
-                <h1 class="text-[#F4D9B3] font-semibold text-lg">AI Shah Alam Business Advisor</h1>
-                <P class="text-white text-s text-muted-foreground flex items-center gap-1">📍Your go to Business Advisor</P>
-             </div>
+    <div style="background-color:var(--bg);display:flex;flex-direction:column;height:100vh;overflow:hidden">
+        <div style="background-color:var(--header)" class="flex justify-between">
+            <div class="ml-32 mt-5 mb-6 flex items-center gap-3">
+                <div class="text-4xl"><p>🌎</p></div>
+                <div>
+                    <h1 style="color:var(--gold)" class="font-semibold text-lg">AI Shah Alam Business Advisor</h1>
+                    <p class="text-white text-s flex items-center gap-1">📍 Your go-to Business Advisor</p>
+                </div>
             </div>
             <div class="flex mr-20">
                 <nav class="navigation">
@@ -429,262 +152,306 @@
             </div>
         </div>
         <div class="main">
-            <!-- CHAT PANEL -->
             <div class="chat-wrap">
-                <div class="panel-header">
-                <h2>Chatbot</h2>
-                </div>
+                <div class="panel-header"><h2>Chatbot</h2></div>
                 <div class="messages" id="messages"></div>
                 <div class="quick-actions">
-                <button class="qa-btn" onclick="sendQuick('Recommend a business for Section 7')">📍 Section 7</button>
-                <button class="qa-btn" onclick="sendQuick('What business should I open in Section 14?')">📍 Section 14</button>
-                <button class="qa-btn" onclick="sendQuick('Best business for Section 9')">📍 Section 9</button>
-                <button class="qa-btn" onclick="sendQuick('Show me model accuracy')">📊 Model Stats</button>
-                <button class="qa-btn" onclick="sendQuick('List all sections')">📋 All Sections</button>
+                    <button class="qa-btn" onclick="sendQuick('Recommend a business for Section 7')">📍 Section 7</button>
+                    <button class="qa-btn" onclick="sendQuick('What business should I open in Section 14?')">📍 Section 14</button>
+                    <button class="qa-btn" onclick="sendQuick('Best business for Section 9')">📍 Section 9</button>
+                    <button class="qa-btn" onclick="sendQuick('Show me model accuracy')">📊 Model Stats</button>
+                    <button class="qa-btn" onclick="sendQuick('List all sections')">📋 All Sections</button>
                 </div>
                 <div class="input-bar">
-                <div class="input-wrap">
-                    <textarea id="userInput" rows="1"
-                    placeholder="Ask about a section, e.g. 'What business for Section 13?'"
-                    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-                </div>
-                <button class="send-btn" onclick="sendMessage()" title="Send">➤</button>
+                    <div class="input-wrap">
+                        <textarea id="userInput" rows="1" placeholder="Ask about a section, e.g. 'What business for Section 13?'" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                    </div>
+                    <button class="send-btn" onclick="sendMessage()" title="Send">➤</button>
                 </div>
             </div>
-
-            <!-- INFO PANEL -->
             <div class="info-wrap">
-                <div class="panel-header">
-                <h2>Info Side</h2>
-                </div>
+                <div class="panel-header"><h2>Info Side</h2></div>
                 <div class="rec-panel" id="recPanel">
-                <div class="empty-state" id="emptyState">
-                    <div class="empty-icon">🗺️</div>
-                    <p><strong>No recommendation yet</strong><br>Ask me about any section in Shah Alam to see detailed predictions and feature analysis here.</p>
-                </div>
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-icon">🗺️</div>
+                        <p><strong>No recommendation yet</strong><br>Ask me about any section in Shah Alam to see detailed predictions and feature analysis here.</p>
+                    </div>
                 </div>
             </div>
-        
         </div>
-
     </div>
+
     <script>
         const messagesEl = document.getElementById('messages');
         const recPanel   = document.getElementById('recPanel');
-      
+
         const BUSINESS_ICONS = {
-          "Food & Beverage":       "🍜",
-          "Retail":                "🛍️",
-          "Professional Services": "💼",
-          "Entertainment":         "🎭",
-          "Health & Wellness":     "🏥",
-          "Education Support":     "📚",
-          "Automotive":            "🔧",
-          "Financial Services":    "💰",
-          "Hospitality":           "🏨",
+            "Food & Beverage":"🍜","Retail & Commerce":"🛍️",
+            "Business & Trade":"💼","Community Services":"🏥","Leisure & Lifestyle":"🎭",
         };
-      
         const FEATURE_LABELS = {
-          "food_beverage":           "Food & Beverage",
-          "retail_outlet":           "Retail Outlets",
-          "service_business":        "Service Businesses",
-          "entertainment":           "Entertainment",
-          "educational_inst":        "Education Institutions",
-          "residential_area":        "Residential Areas",
-          "corporate_office":        "Corporate Offices",
-          "financial_inst":          "Financial Institutions",
-          "hotel":                   "Hotels",
-          "shopping_mall":           "Shopping Malls",
-          "workshop":                "Automotive Workshops",
-          "amenity_diversity_index": "Diversity Index",
+            "population":"Population","food_beverage":"Food & Beverage","retail_outlet":"Retail Outlets",
+            "service_business":"Service Businesses","entertainment":"Entertainment",
+            "educational_inst":"Education Institutions","corporate_office":"Corporate Offices",
+            "financial_inst":"Financial Institutions","shopping_mall":"Retail Complexes & Dept. Stores",
+            "automotive":"Automotive Workshops","healthcare":"Healthcare Facilities",
+            "transportation":"Transportation Nodes","amenity_diversity_index":"Diversity Index",
         };
-      
+        const SECTION_COORDS = {
+            "Section 1":[3.0671,101.5017],"Section 2":[3.0718,101.5084],"Section 3":[3.0742,101.5097],
+            "Section 4":[3.0059,101.5511],"Section 5":[3.0831,101.5163],"Section 6":[3.0821,101.5089],
+            "Section 7":[3.0732,101.4924],"Section 8":[3.0900,101.5088],"Section 9":[3.0832,101.5283],
+            "Section 10":[3.0803,101.5240],"Section 11":[3.0744,101.5289],"Section 12":[3.0700,101.5357],
+            "Section 13":[3.0818,101.5394],"Section 14":[3.0714,101.5243],"Section 15":[3.0870,101.5350],
+            "Section 16":[3.0568,101.5020],"Section 17":[3.0463,101.5058],"Section 18":[3.0481,101.5198],
+            "Section 19":[3.0484,101.5341],"Section 20":[3.0552,101.5391],"Section 21":[3.0563,101.5495],
+            "Section 22":[3.0504,101.5471],"Section 23":[3.0465,101.5288],"Section 24":[3.0385,101.5185],
+            "Section 25":[3.0225,101.5385],"Section 26":[3.0266,101.5622],"Section 27":[3.0235,101.5713],
+            "Section 28":[3.0051,101.5602],"Section 29":[3.1731,101.5138],"Section 30":[2.9790,101.5184],
+            "Section 31":[2.9864,101.5395],"Section 32":[3.0062,101.5181],"Section 33":[3.0214,101.5424],
+            "Section 34":[3.0114,101.4997],"Section 35":[3.0318,101.5124],"Section 36":[3.0323,101.4899],
+            "Section U1":[3.0819,101.5604],"Section U2":[3.0963,101.5568],"Section U3":[3.1198,101.5635],
+            "Section U4":[3.1564,101.5598],"Section U5":[3.1605,101.5491],"Section U6":[3.1385,101.5307],
+            "Section U7":[3.1276,101.5449],"Section U8":[3.1108,101.5469],"Section U9":[3.1300,101.5177],
+            "Section U10":[3.1367,101.4959],"Section U11":[3.0952,101.5072],"Section U12":[3.0845,101.4854],
+            "Section U13":[3.0943,101.4443],"Section U14":[3.0878,101.4884],"Section U15":[3.1776,101.4621],
+            "Section U16":[3.1608,101.5122],"Section U17":[3.2203,101.4991],"Section U18":[3.2110,101.5344],
+            "Section U19":[3.2022,101.5642],"Section U20":[3.2092,101.5425],
+        };
+
         let modelStats = {};
-        fetch('/api/model-stats').then(r => r.json()).then(data => {
-            // data is nested under "random_forest"
-            modelStats = data.random_forest || data;
-        }).catch(() => {});
-      
+        fetch('/api/model-stats').then(r=>r.json()).then(d=>{ modelStats = d.random_forest || d; }).catch(()=>{});
+
         window.addEventListener('load', () => {
-          addBotMessage(
-            "Hello! I'm your **Shah Alam Business Advisor** 👋\n\n" +
-            "I use a **Random Forest** machine learning model trained on geospatial data " +
-            "from all 56 sections of Shah Alam to recommend the best business opportunity " +
-            "for any location.\n\n" +
-            "Try: *'What business should I open in Section 7?'*"
-          );
+            addBotMsg(`<p>Hello! I'm your <strong>Shah Alam Business Advisor</strong> 👋<br>I use a <strong>Random Forest</strong> machine learning model trained on geospatial data from all 56 sections of Shah Alam to recommend the best business opportunity for any location.<br>Try: <em>'What business should I open in Section 7?'</em></p>`);
         });
-      
+
         function renderMarkdown(text) {
-          return text
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n•/g, '<br>•')
-            .replace(/\n-/g, '<br>-')
-            .replace(/\n/g, '<br>');
+            return text
+                .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g,'<em>$1</em>')
+                .replace(/\n\n/g,'</p><p>')
+                .replace(/\n•/g,'<br>•')
+                .replace(/\n-/g,'<br>-')
+                .replace(/\n/g,'<br>');
         }
-      
-        function addBotMessage(text) {
-          const msg = document.createElement('div');
-          msg.className = 'msg';
-          msg.innerHTML = `
-            <img class="avatar-img" src="/static/bot.png" alt="bot avatar">
-            <div class="bubble bot"><p>${renderMarkdown(text)}</p></div>
-          `;
-          messagesEl.appendChild(msg);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        // Parse [BUSINESS_X] and [SEARCH_X] tags from Gemini response
+        function parseBlocks(text) {
+            const bizRe    = /\[BUSINESS_\d+:\s*([^\]]+)\]/g;
+            const searchRe = /\[SEARCH_\d+:\s*([^\]]+)\]/g;
+
+            // Collect all SEARCH tags first
+            const searchMap = {};
+            let sm;
+            let searchIdx = 1;
+            while ((sm = searchRe.exec(text)) !== null) {
+                searchMap[searchIdx++] = sm[1].trim();
+            }
+
+            // Remove all SEARCH tags from text before parsing blocks
+            const cleanText = text.replace(/\[SEARCH_\d+:[^\]]+\]/g, '').replace(/\n{3,}/g, '\n\n');
+
+            const parts = [];
+            const first = cleanText.search(/\[BUSINESS_\d+:/);
+            if (first === -1) { parts.push({type:'intro', text: cleanText.trim()}); return parts; }
+            if (first > 0) parts.push({type:'intro', text: cleanText.slice(0, first).trim()});
+
+            let m;
+            let bizIdx = 1;
+            const tagRe = /\[BUSINESS_\d+:\s*([^\]]+)\]/g;
+            while ((m = tagRe.exec(cleanText)) !== null) {
+                const name    = m[1].trim();
+                const keyword = searchMap[bizIdx] || name.split(' ').slice(-2).join(' '); // fallback: last 2 words
+                const s       = m.index + m[0].length;
+                const next    = cleanText.indexOf('[BUSINESS_', s);
+                parts.push({
+                    type:    'business',
+                    name:    name,
+                    keyword: keyword,
+                    text:    cleanText.slice(s, next > -1 ? next : cleanText.length).trim()
+                });
+                bizIdx++;
+            }
+            return parts;
         }
-      
+
+        function buildCompHtml(results, name) {
+            if (!results || results.length === 0) return '';
+            const top4 = [...results].sort((a,b)=>(b.total_ratings||0)-(a.total_ratings||0)).slice(0,4);
+            const cards = top4.map(c => {
+                const stars = c.rating
+                    ? `<span class="star">⭐</span> ${c.rating}${c.total_ratings ? ` (${c.total_ratings.toLocaleString()})` : ''}`
+                    : '';
+                const badge = c.open_now===true  ? '<span class="comp-open open">Open</span>'
+                            : c.open_now===false ? '<span class="comp-open closed">Closed</span>'
+                            : '';
+                const photoInner = c.photo_url
+                    ? `<img src="${c.photo_url}" alt="${c.name}" loading="lazy" onerror="this.parentElement.innerHTML='🏪'">`
+                    : `🏪`;
+                return `<div class="competitor-card">
+                    <div class="comp-photo-wrap">
+                        <div class="comp-photo">${photoInner}</div>
+                        ${badge}
+                    </div>
+                    <div class="comp-info">
+                        <div class="comp-name" title="${c.name}">${c.name}</div>
+                        ${stars ? `<div class="comp-rating">${stars}</div>` : ''}
+                        <div class="comp-address">${c.address}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            return `<div class="competitor-section"><div class="competitor-label">📍 Nearby Competitors for "${name}" · Google Maps</div><div class="competitor-row">${cards}</div></div>`;
+        }
+
+        async function fetchComp(section, keyword) {
+            const coords = SECTION_COORDS[section];
+            if (!coords) return null;
+            const [lat, lng] = coords;
+            try {
+                const res  = await fetch(`/api/competitors?lat=${lat}&lng=${lng}&keyword=${encodeURIComponent(keyword)}&limit=8`);
+                const data = await res.json();
+                return data.results || [];
+            } catch { return null; }
+        }
+
+        function addBotMsg(html) {
+            const d = document.createElement('div');
+            d.className = 'msg';
+            d.innerHTML = `<img class="avatar-img" src="/static/bot.png" alt="bot"><div class="bubble bot">${html}</div>`;
+            messagesEl.appendChild(d);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return d;
+        }
+
         function addUserMessage(text) {
-          const msg = document.createElement('div');
-          msg.className = 'msg user';
-          msg.innerHTML = `
-            <div class="avatar user-av">👤</div>
-            <div class="bubble user">${text}</div>
-          `;
-          messagesEl.appendChild(msg);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
+            const d = document.createElement('div');
+            d.className = 'msg user';
+            d.innerHTML = `<div class="avatar user-av">👤</div><div class="bubble user">${text}</div>`;
+            messagesEl.appendChild(d);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
         }
-      
+
         function addTyping() {
-          const el = document.createElement('div');
-          el.className = 'msg'; el.id = 'typing';
-          el.innerHTML = `
-            <img class="avatar-img" src="/static/bot.png" alt="bot avatar">
-            <div class="bubble bot"><div class="typing"><span></span><span></span><span></span></div></div>
-          `;
-          messagesEl.appendChild(el);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-          return el;
+            const d = document.createElement('div');
+            d.className='msg'; d.id='typing';
+            d.innerHTML=`<img class="avatar-img" src="/static/bot.png" alt="bot"><div class="bubble bot"><div class="typing"><span></span><span></span><span></span></div></div>`;
+            messagesEl.appendChild(d);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return d;
         }
-      
+
         function renderRecPanel(pred) {
-          const top    = pred.top3_predictions[0];
-          const icon   = BUSINESS_ICONS[top[0]] || '📊';
-          const others = pred.top3_predictions.slice(1);
-          const feats  = pred.top3_features;
-      
-          recPanel.innerHTML = `
-            <div class="panel-title">📍 ${pred.section} · Business Recommendations</div>
-      
-            <div class="top-pick">
-              <div class="top-pick-label">${icon} Top Recommendation</div>
-              <div class="top-pick-name">${top[0]}</div>
-              <div style="font-size:0.72rem;opacity:0.55;margin-bottom:10px">Based on 12 geospatial features</div>
-              <div class="confidence-bar-wrap">
-                <div class="confidence-bar" id="confBar"></div>
-              </div>
-              <div class="confidence-label">
-                <span>Confidence</span>
-                <span>${top[1]}%</span>
-              </div>
-            </div>
-      
-            <div>
-              <div class="panel-title" style="margin-bottom:10px">Other predictions</div>
-              <div class="pred-list">
-                ${others.map((p, i) => `
-                  <div class="pred-item">
-                    <div class="pred-icon">${BUSINESS_ICONS[p[0]] || '📊'}</div>
-                    <div class="pred-info">
-                      <div class="pred-name">${p[0]}</div>
-                      <div class="pred-bar-wrap">
-                        <div class="pred-bar" id="pbar${i}" style="width:0"></div>
-                      </div>
+            const top   = pred.top3_predictions[0];
+            const icon  = BUSINESS_ICONS[top[0]] || '📊';
+            const others= pred.top3_predictions.slice(1);
+            const feats = pred.top3_features;
+            recPanel.innerHTML = `
+                <div class="panel-title">📍 ${pred.section} · Business Recommendations</div>
+                <div class="top-pick">
+                    <div class="top-pick-label">${icon} Top Recommendation</div>
+                    <div class="top-pick-name">${top[0]}</div>
+                    <div style="font-size:0.72rem;opacity:0.55;margin-bottom:10px">Based on geospatial features</div>
+                    <div class="confidence-bar-wrap"><div class="confidence-bar" id="confBar"></div></div>
+                    <div class="confidence-label"><span>Confidence</span><span>${top[1]}%</span></div>
+                </div>
+                <div>
+                    <div class="panel-title" style="margin-bottom:10px">Other predictions</div>
+                    <div class="pred-list">
+                        ${others.map((p,i)=>`<div class="pred-item"><div class="pred-icon">${BUSINESS_ICONS[p[0]]||'📊'}</div><div class="pred-info"><div class="pred-name">${p[0]}</div><div class="pred-bar-wrap"><div class="pred-bar" id="pbar${i}"></div></div></div><div class="pred-pct">${p[1]}%</div></div>`).join('')}
                     </div>
-                    <div class="pred-pct">${p[1]}%</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-      
-            <div>
-              <div class="panel-title" style="margin-bottom:10px">Top 3 Feature Importance</div>
-              <div class="feature-cards">
-                ${feats.map((f, i) => `
-                  <div class="feat-card">
-                    <div class="feat-rank">${i+1}</div>
-                    <div class="feat-info">
-                      <div class="feat-name">${FEATURE_LABELS[f[0]] || f[0]}</div>
-                      <div class="feat-desc">Count: ${pred.section_data[f[0]]}</div>
+                </div>
+                <div>
+                    <div class="panel-title" style="margin-bottom:10px">Top 3 Feature Importance</div>
+                    <div class="feature-cards">
+                        ${feats.map((f,i)=>`<div class="feat-card"><div class="feat-rank">${i+1}</div><div class="feat-info"><div class="feat-name">${FEATURE_LABELS[f[0]]||f[0]}</div><div class="feat-desc">Count: ${pred.section_data[f[0]]}</div></div><div class="feat-imp">${(f[1]*100).toFixed(1)}%</div></div>`).join('')}
                     </div>
-                    <div class="feat-imp">${(f[1]*100).toFixed(1)}%</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-      
-            <div>
-              <div class="panel-title" style="margin-bottom:10px">Model Performance</div>
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-val">${modelStats.cv_accuracy_mean ? (modelStats.cv_accuracy_mean*100).toFixed(1)+'%' : '—'}</div>
-                  <div class="stat-lbl">CV Accuracy</div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-val">${modelStats.cv_f1_mean ? (modelStats.cv_f1_mean*100).toFixed(1)+'%' : '—'}</div>
-                  <div class="stat-lbl">F1 Score</div>
+                <div>
+                    <div class="panel-title" style="margin-bottom:10px">Model Performance</div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-val">${modelStats.cv_accuracy_mean?(modelStats.cv_accuracy_mean*100).toFixed(1)+'%':'—'}</div><div class="stat-lbl">CV Accuracy</div></div>
+                        <div class="stat-card"><div class="stat-val">${modelStats.cv_f1_mean?(modelStats.cv_f1_mean*100).toFixed(1)+'%':'—'}</div><div class="stat-lbl">F1 Score</div></div>
+                        <div class="stat-card"><div class="stat-val">${modelStats.cv_precision_mean?(modelStats.cv_precision_mean*100).toFixed(1)+'%':'—'}</div><div class="stat-lbl">Precision</div></div>
+                        <div class="stat-card"><div class="stat-val">${modelStats.cv_recall_mean?(modelStats.cv_recall_mean*100).toFixed(1)+'%':'—'}</div><div class="stat-lbl">Recall</div></div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-val">${modelStats.cv_precision_mean ? (modelStats.cv_precision_mean*100).toFixed(1)+'%' : '—'}</div>
-                  <div class="stat-lbl">Precision</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-val">${modelStats.cv_recall_mean ? (modelStats.cv_recall_mean*100).toFixed(1)+'%' : '—'}</div>
-                  <div class="stat-lbl">Recall</div>
-                </div>
-              </div>
-            </div>
-          `;
-      
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              const cb = document.getElementById('confBar');
-              if (cb) cb.style.width = top[1] + '%';
-              others.forEach((p, i) => {
-                const el = document.getElementById('pbar' + i);
-                if (el) el.style.width = p[1] + '%';
-              });
-            }, 120);
-          });
+            `;
+            requestAnimationFrame(()=>setTimeout(()=>{
+                const cb=document.getElementById('confBar'); if(cb) cb.style.width=top[1]+'%';
+                others.forEach((p,i)=>{const el=document.getElementById('pbar'+i); if(el) el.style.width=p[1]+'%';});
+            },120));
         }
-      
+
         async function sendMessage() {
-          const input = document.getElementById('userInput');
-          const text  = input.value.trim();
-          if (!text) return;
-          addUserMessage(text);
-          input.value = '';
-          input.style.height = 'auto';
-          const typing = addTyping();
-          try {
-            const res  = await fetch('/api/recommend', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: text }),
-            });
-            const data = await res.json();
-            typing.remove();
-            addBotMessage(data.message || 'Sorry, I could not process that.');
-            if (data.prediction) renderRecPanel(data.prediction);
-          } catch (e) {
-            typing.remove();
-            addBotMessage('⚠️ Could not connect to the server. Make sure Flask is running.');
-          }
+            const input = document.getElementById('userInput');
+            const text  = input.value.trim();
+            if (!text) return;
+            addUserMessage(text);
+            input.value=''; input.style.height='auto';
+            const typing = addTyping();
+
+            try {
+                const res  = await fetch('/api/recommend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+                const data = await res.json();
+                if (typing && typing.parentNode) typing.remove();
+
+                const raw = data.message || 'Sorry, I could not process that.';
+
+                if (data.prediction && data.prediction.section) {
+                    const pred    = data.prediction;
+                    const section = pred.section;
+                    const blocks  = parseBlocks(raw);
+
+                    // Build bubble with loading placeholders per biz block
+                    let html = '';
+                    blocks.forEach((b, idx) => {
+                        if (b.type === 'intro') {
+                            html += `<p>${renderMarkdown(b.text)}</p>`;
+                        } else {
+                            html += `
+                                <div class="biz-block">
+                                    <p>${renderMarkdown(b.text)}</p>
+                                    <div id="comp-${idx}">
+                                        <div class="competitor-section">
+                                            <div class="competitor-label">📍 Nearby Competitors for "${b.name}" · Google Maps</div>
+                                            <div class="comp-loading"><span>Loading</span><div class="typing"><span></span><span></span><span></span></div></div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                        }
+                    });
+
+                    const msgEl = addBotMsg(html);
+                    renderRecPanel(pred);
+
+                    // Fetch competitors per business in parallel
+                    const bizBlocks = blocks.filter(b => b.type === 'business');
+                    await Promise.all(bizBlocks.map(async (b) => {
+                        const idx   = blocks.indexOf(b);
+                        const wrap  = msgEl.querySelector(`#comp-${idx}`);
+                        if (!wrap) return;
+                        try {
+                            const results = await fetchComp(section, b.keyword || b.name);
+                            wrap.innerHTML = (results && results.length > 0) ? buildCompHtml(results, b.name) : '';
+                        } catch { wrap.innerHTML = ''; }
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                    }));
+
+                } else {
+                    addBotMsg(`<p>${renderMarkdown(raw)}</p>`);
+                    if (data.prediction) renderRecPanel(data.prediction);
+                }
+
+            } catch (e) {
+                if (typing && typing.parentNode) typing.remove();
+                addBotMsg('<p>⚠️ Could not connect to the server. Make sure Flask is running.</p>');
+            }
         }
-      
-        function sendQuick(text) {
-          document.getElementById('userInput').value = text;
-          sendMessage();
-        }
-        function handleKey(e) {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-        }
-        function autoResize(el) {
-          el.style.height = 'auto';
-          el.style.height = Math.min(el.scrollHeight, 110) + 'px';
-        }
-      </script>
+
+        function sendQuick(text) { document.getElementById('userInput').value=text; sendMessage(); }
+        function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+        function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+    </script>
 </body>
 </html>

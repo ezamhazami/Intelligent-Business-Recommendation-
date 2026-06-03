@@ -37,6 +37,7 @@ from sklearn.model_selection import (
     RandomizedSearchCV,
     StratifiedKFold,
     cross_val_score,
+    cross_val_predict,
     cross_validate,
 )
 from sklearn.pipeline import Pipeline
@@ -157,14 +158,15 @@ def train():
         "model__min_samples_leaf":  [1, 2, 3],
         "model__max_features":      ["sqrt", "log2", None],
         "model__bootstrap":         [True, False],
+        'model__class_weight':      ['balanced', 'balanced_subsample', None],
     }
 
     rf_search = RandomizedSearchCV(
         build_pipeline(RandomForestClassifier(random_state=42)),
         param_distributions=param_dist,
-        n_iter=10,
+        n_iter=30,
         cv=skf,
-        scoring="accuracy",
+        scoring="f1_macro",
         n_jobs=-1,
         random_state=42,
         verbose=0,
@@ -176,17 +178,28 @@ def train():
 
     best_rf_pipeline = rf_search.best_estimator_
 
+    best_cv = cross_validate(
+        best_rf_pipeline, X, y, cv=skf,
+        scoring=['accuracy', 'precision_macro', 'recall_macro', 'f1_macro'],
+        return_train_score=True
+    )
+    y_pred_best = cross_val_predict(best_rf_pipeline, X, y, cv=skf)
+
+    rf_cv_acc_best   = best_cv["test_accuracy"].mean()
+    rf_cv_prec_best  = best_cv["test_precision_macro"].mean()
+    rf_cv_rec_best   = best_cv["test_recall_macro"].mean()
+    rf_cv_f1_best    = best_cv["test_f1_macro"].mean()
+
     # Final fit & evaluation on full data
-    best_rf_pipeline.fit(X, y)
-    y_pred_rf = best_rf_pipeline.predict(X)
-    rf_acc    = accuracy_score(y, y_pred_rf)
-    rf_report = classification_report(y, y_pred_rf,
-                                      target_names=le.classes_,
-                                      output_dict=True)
+    best_rf_pipeline.fit(X, y)                         # train on ALL 56 rows
+    y_pred_full = best_rf_pipeline.predict(X)          # predict ALL 56 rows
+    rf_acc    = accuracy_score(y, y_pred_full)         # this is the real final accuracy
+    rf_report = classification_report(y, y_pred_full, target_names=le.classes_,
+                                    output_dict=True, zero_division=0)
 
     print("📊  RF Final Evaluation (full dataset fit):")
     print(f"   Accuracy : {rf_acc:.4f}")
-    print(classification_report(y, y_pred_rf, target_names=le.classes_))
+    print(classification_report(y, y_pred_full, target_names=le.classes_))
 
     # ══════════════════════════════════════════════════════════════════════════
     # 3. Feature importances (RF only)
@@ -231,11 +244,11 @@ def train():
 
     eval_report = {
         "random_forest": {
-            "cv_accuracy_mean":  float(rf_cv_acc),
-            "cv_accuracy_std":   float(rf_cv["test_accuracy"].std()),
-            "cv_precision_mean": float(rf_cv_prec),
-            "cv_recall_mean":    float(rf_cv_rec),
-            "cv_f1_mean":        float(rf_cv_f1),
+            "cv_accuracy_mean":  float(rf_cv_acc_best),
+            "cv_accuracy_std":   float(best_cv["test_accuracy"].std()),
+            "cv_precision_mean": float(rf_cv_prec_best),
+            "cv_recall_mean":    float(rf_cv_rec_best),
+            "cv_f1_mean":        float(rf_cv_f1_best),
             "best_params":       rf_search.best_params_,
             "final_accuracy":    float(rf_acc),
             "feature_importance": {f: float(i) for f, i in feat_imp},

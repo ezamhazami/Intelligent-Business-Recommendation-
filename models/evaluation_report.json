@@ -1,76 +1,77 @@
 {
   "random_forest": {
-    "cv_accuracy_mean": 0.556060606060606,
-    "cv_accuracy_std": 0.08068804215572331,
-    "cv_precision_mean": 0.47419047619047616,
-    "cv_recall_mean": 0.5033333333333333,
-    "cv_f1_mean": 0.4546464646464646,
+    "cv_accuracy_mean": 0.6787878787878788,
+    "cv_accuracy_std": 0.1467117386292146,
+    "cv_precision_mean": 0.6559999999999999,
+    "cv_recall_mean": 0.6833333333333333,
+    "cv_f1_mean": 0.6409523809523809,
     "best_params": {
-      "model__n_estimators": 200,
-      "model__min_samples_split": 4,
+      "model__n_estimators": 100,
+      "model__min_samples_split": 8,
       "model__min_samples_leaf": 2,
       "model__max_features": null,
-      "model__max_depth": 10,
+      "model__max_depth": null,
+      "model__class_weight": "balanced_subsample",
       "model__bootstrap": false
     },
-    "final_accuracy": 0.9642857142857143,
+    "final_accuracy": 0.875,
     "feature_importance": {
-      "corporate_office": 0.3607843078796534,
-      "shopping_mall": 0.21373203511555852,
-      "transportation": 0.11307718713752452,
-      "financial_inst": 0.08517663087103491,
-      "automotive": 0.056396817460768446,
-      "entertainment": 0.04744679797545451,
-      "amenity_diversity_index": 0.037299475807277285,
-      "educational_inst": 0.025140203559025357,
-      "food_beverage": 0.02246185548587416,
-      "population": 0.016963439294970715,
-      "retail_outlet": 0.010314208489464958,
-      "service_business": 0.006278518336507154,
-      "healthcare": 0.004928522586886117
+      "shopping_mall": 0.31057312916405394,
+      "corporate_office": 0.28216744441148667,
+      "transportation": 0.14540376099540403,
+      "population": 0.08818697703819442,
+      "financial_inst": 0.07091406442393734,
+      "automotive": 0.06699564969276696,
+      "food_beverage": 0.0216503617451098,
+      "healthcare": 0.00757654087480858,
+      "entertainment": 0.0038280408852227484,
+      "service_business": 0.002704030769015517,
+      "retail_outlet": 0.0,
+      "educational_inst": 0.0,
+      "amenity_diversity_index": 0.0
     },
     "classification_report": {
       "Business & Trade": {
+        "precision": 0.8888888888888888,
+        "recall": 0.8888888888888888,
+        "f1-score": 0.8888888888888888,
+        "support": 9.0
+      },
+      "Community Services": {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1-score": 0.8888888888888888,
+        "support": 20.0
+      },
+      "Food & Beverage": {
+        "precision": 0.625,
+        "recall": 1.0,
+        "f1-score": 0.7692307692307693,
+        "support": 5.0
+      },
+      "Leisure & Lifestyle": {
+        "precision": 0.8461538461538461,
+        "recall": 0.8461538461538461,
+        "f1-score": 0.8461538461538461,
+        "support": 13.0
+      },
+      "Retail & Commerce": {
         "precision": 0.9,
         "recall": 1.0,
         "f1-score": 0.9473684210526315,
         "support": 9.0
       },
-      "Community Services": {
-        "precision": 0.95,
-        "recall": 0.95,
-        "f1-score": 0.95,
-        "support": 20.0
-      },
-      "Food & Beverage": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1-score": 1.0,
-        "support": 5.0
-      },
-      "Leisure & Lifestyle": {
-        "precision": 1.0,
-        "recall": 0.9230769230769231,
-        "f1-score": 0.96,
-        "support": 13.0
-      },
-      "Retail & Commerce": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1-score": 1.0,
-        "support": 9.0
-      },
-      "accuracy": 0.9642857142857143,
+      "accuracy": 0.875,
       "macro avg": {
-        "precision": 0.97,
-        "recall": 0.9746153846153847,
-        "f1-score": 0.9714736842105264,
+        "precision": 0.8520085470085471,
+        "recall": 0.9070085470085469,
+        "f1-score": 0.8681061628430049,
         "support": 56.0
       },
       "weighted avg": {
-        "precision": 0.9660714285714286,
-        "recall": 0.9642857142857143,
-        "f1-score": 0.9643984962406016,
+        "precision": 0.896875,
+        "recall": 0.875,
+        "f1-score": 0.8776829895250948,
         "support": 56.0
       }
     }
