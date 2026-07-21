@@ -277,7 +277,7 @@ def predict_for_section(section_name: str) -> dict | None:
 
     top3_idx    = np.argsort(probas)[::-1][:3]
     top3_labels = [(class_labels[i], round(float(probas[i]) * 100, 1)) for i in top3_idx]
-    top3_feats  = _top3_business_features()
+    top3_feats  = _top3_business_features(row)
 
     def _fmt(col, value):
         if col == "amenity_diversity_index":
@@ -299,7 +299,7 @@ def predict_for_section(section_name: str) -> dict | None:
     }
 
 
-def _top3_business_features() -> list[tuple[str, float]]:
+def _top3_business_features(row=None) -> list[tuple[str, float]]:
     rf      = eval_report.get("random_forest", eval_report) if isinstance(eval_report, dict) else {}
     raw_imp = rf.get("feature_importance", {}) if isinstance(rf, dict) else {}
     agg_imp = {k: 0.0 for k in EXPLANATION_KEYS}
@@ -315,6 +315,29 @@ def _top3_business_features() -> list[tuple[str, float]]:
         for f, i in zip(feature_names, rf_step.feature_importances_):
             if f in agg_imp:
                 agg_imp[f] += float(i)
+
+    # Global importance alone is the same for every section (it's a single
+    # model-level ranking). To make the "why this section" explanation
+    # section-specific, weight each feature's global importance by how much
+    # of that feature THIS section actually has (normalized 0-1 against the
+    # max seen across all sections in the dataset). A feature the section has
+    # zero of then naturally contributes ~0 and drops out of the top 3.
+    if row is not None and dataset is not None:
+        contrib = {}
+        for f, imp in agg_imp.items():
+            try:
+                val = float(row[f]) if f in row.index else 0.0
+            except Exception:
+                val = 0.0
+            max_val = float(dataset[f].max()) if f in dataset.columns else 0.0
+            norm_val = (val / max_val) if max_val > 0 else 0.0
+            contrib[f] = imp * norm_val
+
+        total = sum(contrib.values())
+        if total > 0:
+            agg_imp = {f: v / total for f, v in contrib.items()}
+        # else: section has none of any top global feature -> fall back to
+        # the global ranking computed above so we still show something sensible
 
     feat_imp = sorted(agg_imp.items(), key=lambda x: x[1], reverse=True)
     return [(f, round(float(i), 4)) for f, i in feat_imp[:3]]
