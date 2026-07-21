@@ -50,7 +50,7 @@ FEATURE_DESCRIPTIONS = {
     "educational_inst":        "educational institution count (schools, universities)",
     "corporate_office":        "corporate office count",
     "financial_inst":          "financial institution count (banks, ATMs)",
-    "shopping_mall":           "shopping mall / department store count",
+    "shopping_mall":           "retail complex & dept. store count",
     "automotive":              "automotive workshop count (car repair, gas stations)",
     "healthcare":              "healthcare facility count (hospitals, clinics, pharmacies)",
     "transportation":          "transportation node count (bus, train, transit stations)",
@@ -91,8 +91,19 @@ def _section_sort_key(s: str):
 
 
 def extract_all_sections(text: str) -> list[str]:
-    """Extract ALL section mentions from text (handles comparisons like Section 7 vs Section 9)."""
-    matches = re.findall(r"section\s*(u?\d+)", text, re.IGNORECASE)
+    """Extract ALL section mentions from text. Handles typos and 'Section 7 and 9' format."""
+    matches = re.findall(
+        r"(?:section|sektion|seksyen|seksion|sekyen)\s*(u?\d+)",
+        text, re.IGNORECASE
+    )
+    trailing = re.findall(
+        r"(?:section|sektion|seksyen|seksion|sekyen)\s*(u?\d+)\s*(?:and|or|vs|versus)\s*(u?\d+)",
+        text, re.IGNORECASE
+    )
+    for pair in trailing:
+        if pair[1] not in matches:
+            matches.append(pair[1])
+
     seen, result = set(), []
     for m in matches:
         key = f"Section {m.upper()}"
@@ -138,53 +149,48 @@ def extract_budget(text: str) -> tuple[int | None, str]:
 
 def extract_user_business(text: str) -> str | None:
     """Extract a specific business type the user mentions or asks about."""
+    cleaned = re.sub(
+        r"^(?:revenue\s+potential\s+of\s+(?:a\s+|an\s+)?|"
+        r"how\s+much\s+(?:can\s+i\s+earn\s+from\s+(?:a\s+|an\s+)?)?|"
+        r"(?:profit|income|earning[s]?)\s+from\s+(?:a\s+|an\s+)?|"
+        r"how\s+much\s+(?:does\s+|can\s+)?(?:a\s+|an\s+)?)",
+        "", text.strip(), flags=re.IGNORECASE
+    )
+
     patterns = [
-        # Must end with a business noun — most specific patterns first
+        r"section\s*u?\d+\s*(?:and|or|vs|versus)\s*(?:section\s*)?u?\d+\s+for\s+(?:a\s+|an\s+)?([a-zA-Z][\w\s&]{1,40}?)\s*$",
+        r"([a-zA-Z][\w\s&]{1,40}?)\s+(?:should\s+i\s+open|can\s+i\s+open|i\s+should\s+open|i\s+want\s+to\s+open)\s+in\s+section",
         r"(?:open|start|run|launch|set up|establish)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s+(?:business|shop|store|restaurant|cafe|outlet|kiosk|stall|clinic|centre|center|studio|salon|workshop|company)\b",
-        # "can I open a X in Section" or "should I open a X in Section"
         r"(?:can i|should i|i want to|i'm thinking of|thinking of opening|considering)\s+(?:open|start|run|launch)?\s*(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s+(?:in\s+section|shop|business|store|restaurant|cafe|outlet)\b",
-        # "Is a cafe good for Section 14" / "is a pharmacy suitable in Section 9"
         r"(?:is|are)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,30}?)\s+(?:good|suitable|viable|profitable|worth|bad)\s+(?:for|in)\s+section",
-        # "open a X in Section"
         r"(?:open|start)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s+in\s+section",
-        # "X shop in Section" / "X restaurant in Section"
         r"([a-zA-Z][\w\s&]{1,30}?)\s+(?:shop|store|restaurant|cafe|outlet|kiosk|stall|business|workshop|clinic)\s+in\s+section",
-        # revenue queries: "revenue from a X in Section"
         r"(?:revenue|profit|earn|income)\s+.*?(?:open|run|start|from)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,30}?)(?:\s+in\s+section|\s*$)",
-        # "I want to open/start/run a X"
         r"(?:i\s+(?:want|plan|wish|intend)\s+to\s+(?:open|start|run|sell))\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)(?:\s+in|\s*$)",
     ]
-    # Words that are never a business name on their own
     stopwords = {"the", "a", "an", "my", "in", "at", "for", "with", "and", "or", "to", "is",
                  "business", "shop", "store", "section", "shah", "alam", "good", "best",
                  "open", "start", "run", "launch", "i", "can", "should", "want", "plan",
-                 "from", "if", "this", "that", "which", "what", "how", "much", "any"}
-    for pattern in patterns:
-        m = re.search(pattern, text, re.IGNORECASE)
-        if m:
-            candidate = m.group(1).strip()
-            words = [w for w in candidate.split() if w.lower() not in stopwords]
-            if 1 <= len(words) <= 6:
-                return " ".join(words).strip()
+                 "from", "if", "this", "that", "which", "what", "how", "much", "any",
+                 "revenue", "potential", "profit", "earn", "income", "earning", "earnings"}
+
+    for source in [cleaned, text]:
+        for pattern in patterns:
+            m = re.search(pattern, source, re.IGNORECASE)
+            if m:
+                candidate = m.group(1).strip()
+                words = [w for w in candidate.split() if w.lower() not in stopwords]
+                if 1 <= len(words) <= 6:
+                    return " ".join(words).strip()
     return None
 
 
 def extract_generic_business_query(text: str) -> str | None:
-    """
-    Detect questions about a specific business type WITHOUT a section number.
-    e.g. 'What section i can open stationary shops?' → 'stationary shops'
-    e.g. 'Which section is best for a pharmacy?'    → 'pharmacy'
-    """
     patterns = [
-        # "what section i can open X?" — handles natural/informal phrasing
         r"(?:what|which)\s+section[s]?\s+(?:can\s+)?i\s+(?:can\s+)?(?:open|start|run)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s*\??$",
-        # "what/which section can/should I open a X?"
         r"(?:what|which)\s+section[s]?\s+(?:can|should|is|are|would\s+be)\s+(?:best|good|suitable|ideal)?\s*(?:for|to\s+open|i\s+can\s+open)?\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s*\??$",
-        # "where can I open a X?" / "what section should I run a X?"
         r"(?:where|what\s+section)\s+(?:can|should)\s+i\s+(?:open|start|run)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s*\??$",
-        # "best/good/suitable section for X"
         r"(?:best|good|suitable)\s+section[s]?\s+(?:for\s+)?(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s*\??$",
-        # "open/start a X in Shah Alam / in which section"
         r"(?:open|start|run)\s+(?:a |an )?([a-zA-Z][\w\s&]{1,40}?)\s+(?:in\s+shah\s+alam|in\s+which\s+section)\s*\??$",
     ]
     stopwords = {"the", "a", "an", "my", "in", "at", "for", "with", "and", "or", "to", "is",
@@ -201,12 +207,12 @@ def extract_generic_business_query(text: str) -> str | None:
 
 
 def is_comparison_query(text: str) -> bool:
-    """Detect 'Section 7 vs Section 9' or 'better section 7 or section 9' queries."""
     sections = extract_all_sections(text)
     if len(sections) < 2:
         return False
     comparison_words = [r"\bvs\b", r"\bversus\b", r"\bor\b", r"\bbetter\b",
-                        r"\bcompare\b", r"\bwhich\s+(?:section|one)\b", r"\bbetween\b"]
+                        r"\bcompare\b", r"\bwhich\s+(?:section|one)\b", r"\bbetween\b",
+                        r"\band\b"]
     t = text.lower()
     return any(re.search(p, t) for p in comparison_words)
 
@@ -219,7 +225,6 @@ def is_revenue_or_finance_query(text: str) -> bool:
 
 
 def is_market_advice_query(text: str) -> bool:
-    """Generic business advice without a specific section."""
     t = text.lower()
     advice_patterns = [r"\badvice\b", r"\btips?\b", r"\bhow to\b", r"\bstrategy\b",
                        r"\bguide\b", r"\bsuggestion\b", r"\bwhat should\b"]
@@ -230,7 +235,6 @@ def is_market_advice_query(text: str) -> bool:
 def detect_intent(text: str) -> str:
     t = text.lower()
 
-    # Hard-coded quick intents
     if any(re.search(p, t) for p in GREETING_PATTERNS): return "greeting"
     if any(re.search(p, t) for p in HELP_PATTERNS):     return "help"
     if any(re.search(p, t) for p in STATS_PATTERNS):    return "stats"
@@ -240,27 +244,16 @@ def detect_intent(text: str) -> str:
     user_business = extract_user_business(text)
     generic_biz   = extract_generic_business_query(text)
 
-    # Comparison between 2+ sections
     if is_comparison_query(text) and len(sections) >= 2:
         return "compare"
-
-    # Revenue / financial question for a specific section
     if is_revenue_or_finance_query(text) and sections:
         return "revenue"
-
-    # User asks about their own business idea in a specific section
     if sections and user_business:
         return "evaluate"
-
-    # Standard recommendation for a specific section
     if sections:
         return "recommend"
-
-    # Generic question about which section suits a business type
     if generic_biz:
         return "find_section"
-
-    # Business question with no section — ask for clarification
     if user_business or is_market_advice_query(text):
         return "clarify_section"
 
@@ -365,7 +358,7 @@ def _call_gemini(prompt: str) -> str | None:
 ADVISOR_PERSONA = """You are a sharp, no-nonsense business advisor specialising in Shah Alam, Malaysia.
 You give honest, specific, data-backed advice in flowing prose.
 Rules that ALWAYS apply:
-- Use actual numbers from the data in every paragraph — never say "strong presence" or "significant demand" without a number.
+- Use actual numbers from the data in every paragraph , never say "strong presence" or "significant demand" without a number.
 - Bold (**) every specific business name you recommend.
 - Write in second person ("you", "your").
 - No bullet points. No headers. No markdown lists.
@@ -373,6 +366,7 @@ Rules that ALWAYS apply:
 - Never use marketing fluff: "ripe for", "golden opportunity", "untapped potential".
 - Be direct — give a verdict, then back it with numbers.
 - Keep responses to 3–4 short paragraphs maximum.
+- When referencing the shopping_mall feature, always say "retail complexes and department stores", never "shopping malls".
 """
 
 
@@ -390,59 +384,59 @@ def prompt_recommend(prediction: dict, user_message: str = "") -> str:
     f3_desc = FEATURE_DESCRIPTIONS.get(top3_f[2][0], top3_f[2][0])
 
     return f"""{ADVISOR_PERSONA}
-{budget_block}
-=== {section} GEOSPATIAL DATA ===
-{profile}
+    {budget_block}
+    === {section} GEOSPATIAL DATA ===
+    {profile}
 
-=== RECOMMENDATION TASK ===
-Business category the data points to: {btype}
-Top signals: {f1_desc} = {s_data.get(top3_f[0][0])} | {f2_desc} = {s_data.get(top3_f[1][0])} | {f3_desc} = {s_data.get(top3_f[2][0])}
-Domain insight: {BUSINESS_INSIGHTS.get(btype, "")}
+    === RECOMMENDATION TASK ===
+    Business category the data points to: {btype}
+    Top signals: {f1_desc} = {s_data.get(top3_f[0][0])} | {f2_desc} = {s_data.get(top3_f[1][0])} | {f3_desc} = {s_data.get(top3_f[2][0])}
+    Domain insight: {BUSINESS_INSIGHTS.get(btype, "")}
 
-=== STRICT OUTPUT FORMAT — FOLLOW EXACTLY ===
+    === STRICT OUTPUT FORMAT — FOLLOW EXACTLY ===
 
-Write one short opening paragraph (2–3 sentences) explaining why {section} suits {btype}. Use all 3 top signal numbers.
+    Write one short opening paragraph (2–3 sentences) explaining why {section} suits {btype}. Use all 3 top signal numbers.
 
-Then output EXACTLY 3 business ideas using this format. Both tags are MANDATORY for each:
+    Then output EXACTLY 3 business ideas using this format. Both tags are MANDATORY for each:
 
-[BUSINESS_1: Display Name]
-[SEARCH_1: simple keyword]
-4–5 sentences covering:
-1. Open with the display name in bold (**Display Name**) and what it specifically sells or offers.
-2. WHY this section suits this business — use at least 2 actual numbers from the data.
-3. Target customer using actual data (population, corporate count, student count etc).
-4. One specific operational tip — location, pricing, or differentiator.{"5. Budget: " + budget_str if budget_str else ""}
+    [BUSINESS_1: Display Name]
+    [SEARCH_1: simple keyword]
+    4–5 sentences covering:
+    1. Open with the display name in bold (**Display Name**) and what it specifically sells or offers.
+    2. WHY this section suits this business — use at least 2 actual numbers from the data.
+    3. Target customer using actual data (population, corporate count, student count etc).
+    4. One specific operational tip — location, pricing, or differentiator.{"5. Budget: " + budget_str if budget_str else ""}
 
-[BUSINESS_2: Display Name]
-[SEARCH_2: simple keyword]
-4–5 sentences. DIFFERENT business type from BUSINESS_1.
-1. Open with display name in bold.
-2. Use DIFFERENT data signals from BUSINESS_1 — at least 2 numbers.
-3. Target customer with actual data.
-4. One specific operational tip.{"Budget: " + budget_str if budget_str else ""}
+    [BUSINESS_2: Display Name]
+    [SEARCH_2: simple keyword]
+    4–5 sentences. DIFFERENT business type from BUSINESS_1.
+    1. Open with display name in bold.
+    2. Use DIFFERENT data signals from BUSINESS_1 — at least 2 numbers.
+    3. Target customer with actual data.
+    4. One specific operational tip.{"Budget: " + budget_str if budget_str else ""}
 
-[BUSINESS_3: Display Name]
-[SEARCH_3: simple keyword]
-4–5 sentences. Lower-cost or niche option vs BUSINESS_1 and BUSINESS_2.
-1. Open with display name in bold.
-2. Justify with at least 2 actual numbers.
-3. Target customer with actual data.
-4. One specific operational tip for low-cost entry.{"Budget: " + budget_str if budget_str else ""}
+    [BUSINESS_3: Display Name]
+    [SEARCH_3: simple keyword]
+    4–5 sentences. Lower-cost or niche option vs BUSINESS_1 and BUSINESS_2.
+    1. Open with display name in bold.
+    2. Justify with at least 2 actual numbers.
+    3. Target customer with actual data.
+    4. One specific operational tip for low-cost entry.{"Budget: " + budget_str if budget_str else ""}
 
-End with exactly ONE sentence about the biggest risk using a specific number.
+    End with exactly ONE sentence about the biggest risk using a specific number.
 
-RULES FOR TAGS — CRITICAL:
-[BUSINESS_X: Display Name] — the human-readable name shown to the user. Can be descriptive. 2–5 words.
-[SEARCH_X: simple keyword] — what gets searched on Google Maps. MUST be a simple, common, searchable noun phrase. Examples:
-  - "IT support shop" NOT "Corporate IT Solutions Provider"
-  - "stationery shop" NOT "Commercial Office Supplies Hub"  
-  - "car parts shop" NOT "Automotive Parts Wholesaler"
-  - "co-working space" NOT "Section 14 WorkPod"
-  - "cafe" NOT "Specialty Coffee Boutique"
-  - "pharmacy" NOT "Community Health Solutions"
-Keep SEARCH tags to 2–3 common words that anyone would type into Google Maps.
+    RULES FOR TAGS — CRITICAL:
+    [BUSINESS_X: Display Name] — the human-readable name shown to the user. Can be descriptive. 2–5 words.
+    [SEARCH_X: simple keyword] — what gets searched on Google Maps. MUST be a simple, common, searchable noun phrase. Examples:
+    - "IT support shop" NOT "Corporate IT Solutions Provider"
+    - "stationery shop" NOT "Commercial Office Supplies Hub"
+    - "car parts shop" NOT "Automotive Parts Wholesaler"
+    - "co-working space" NOT "Section 14 WorkPod"
+    - "cafe" NOT "Specialty Coffee Boutique"
+    - "pharmacy" NOT "Community Health Solutions"
+    Keep SEARCH tags to 2–3 common words that anyone would type into Google Maps.
 
-No bullet points. No sub-headers. Pure prose in each business block."""
+    No bullet points. No sub-headers. Pure prose in each business block."""
 
 
 def prompt_evaluate(prediction: dict, user_business: str, user_message: str = "") -> str:
@@ -459,29 +453,38 @@ def prompt_evaluate(prediction: dict, user_business: str, user_message: str = ""
     f3_desc = FEATURE_DESCRIPTIONS.get(top3_f[2][0], top3_f[2][0])
 
     return f"""{ADVISOR_PERSONA}
-{budget_block}
-=== {section} GEOSPATIAL DATA ===
-{profile}
+    {budget_block}
+    === {section} GEOSPATIAL DATA ===
+    {profile}
 
-=== EVALUATION TASK ===
-The entrepreneur wants to open: **{user_business}**
-What the data most strongly supports for this section: {btype}
-Top signals: {f1_desc} = {s_data.get(top3_f[0][0])} | {f2_desc} = {s_data.get(top3_f[1][0])} | {f3_desc} = {s_data.get(top3_f[2][0])}
+    === EVALUATION TASK ===
+    The entrepreneur wants to open: **{user_business}**
+    What the data most strongly supports for this section: {btype}
+    Top signals: {f1_desc} = {s_data.get(top3_f[0][0])} | {f2_desc} = {s_data.get(top3_f[1][0])} | {f3_desc} = {s_data.get(top3_f[2][0])}
 
-=== OUTPUT (3 paragraphs, no headers) ===
+    === OUTPUT (3 paragraphs, no headers) ===
 
-Paragraph 1 — VERDICT (1–2 sentences):
-Open with EXACTLY one of: "Opening a **{user_business}** in {section} is a **good fit**." / "...is a **moderate fit**." / "...is a **poor fit**."
-Then give the single strongest reason using an actual number.
+    Paragraph 1 — VERDICT (1–2 sentences):
+    You MUST pick the verdict honestly based on this rule:
+    - **good fit** → ONLY if the data category ({btype}) directly aligns with {user_business}
+    - **moderate fit** → if {user_business} could work but the data points to a different category
+    - **poor fit** → if the data strongly contradicts {user_business}
 
-Paragraph 2 — DATA DEEP-DIVE (2–3 sentences):
-Which specific data signals support or contradict a {user_business} here?
-Use at least 2 actual counts. If it is a poor or moderate fit, state what the data actually supports instead.
+    For "food stalls" in a Retail & Commerce section → that is a **moderate fit** at best, not good fit.
+    For "bakery" in a Food & Beverage section → that is a **good fit**.
+    For "gym" in a Business & Trade section → that is a **poor fit**.
 
-Paragraph 3 — ACTIONABLE ADVICE (2–3 sentences):
-Good fit → 1–2 positioning tips tied to specific counts.
-Moderate fit → the one condition that would make it work, tied to a number.
-Poor fit → name a better alternative in **bold** and explain why using the data."""
+    Open with EXACTLY one of: "Opening a **{user_business}** in {section} is a **good fit**." / "...is a **moderate fit**." / "...is a **poor fit**."
+    Then give the single strongest reason using an actual number.
+
+    Paragraph 2 — DATA DEEP-DIVE (2–3 sentences):
+    Which specific data signals support or contradict a {user_business} here?
+    Use at least 2 actual counts. If it is a poor or moderate fit, state what the data actually supports instead.
+
+    Paragraph 3 — ACTIONABLE ADVICE (2–3 sentences):
+    Good fit → 1–2 positioning tips tied to specific counts.
+    Moderate fit → the one condition that would make it work, tied to a number.
+    Poor fit → name a better alternative in **bold** and explain why using the data."""
 
 
 def prompt_compare(predictions: list[dict], user_business: str | None, user_message: str) -> str:
@@ -493,29 +496,29 @@ def prompt_compare(predictions: list[dict], user_business: str | None, user_mess
     focus = f"specifically for a **{user_business}** business" if user_business else "for the best general business opportunity"
 
     return f"""{ADVISOR_PERSONA}
-{budget_block}
-=== COMPARISON REQUEST ===
-The entrepreneur is comparing: {section_names}
-Focus: {focus}
+    {budget_block}
+    === COMPARISON REQUEST ===
+    The entrepreneur is comparing: {section_names}
+    Focus: {focus}
 
-{multi_profile}
+    {multi_profile}
 
-=== OUTPUT (3–4 paragraphs, no headers) ===
+    === OUTPUT (3–4 paragraphs, no headers) ===
 
-Paragraph 1 — VERDICT:
-State clearly which section wins {focus} and why, using actual numbers from both sections.
-Start: "Between {section_names}, **[winning section]** is the better choice{" for a " + user_business if user_business else ""}."
+    Paragraph 1 — VERDICT:
+    State clearly which section wins {focus} and why, using actual numbers from both sections.
+    Start: "Between {section_names}, **[winning section]** is the better choice{" for a " + user_business if user_business else ""}."
 
-Paragraph 2 — HEAD-TO-HEAD:
-Compare the most relevant data signals side-by-side using actual counts for each section.
-{"Focus on signals that matter most for a " + user_business + " business." if user_business else ""}
-Reference at least 3 numbers from each section.
+    Paragraph 2 — HEAD-TO-HEAD:
+    Compare the most relevant data signals side-by-side using actual counts for each section.
+    {"Focus on signals that matter most for a " + user_business + " business." if user_business else ""}
+    Reference at least 3 numbers from each section.
 
-Paragraph 3 — WINNING SECTION SPECIFICS:
-For the winning section, name 1–2 specific business concepts in **bold** that would work there.
-{"Link each concept directly to the " + user_business + " opportunity." if user_business else ""}
+    Paragraph 3 — WINNING SECTION SPECIFICS:
+    For the winning section, name 1–2 specific business concepts in **bold** that would work there.
+    {"Link each concept directly to the " + user_business + " opportunity." if user_business else ""}
 
-Paragraph 4 — LOSING SECTION CONSOLATION (optional, only if the losing section has a clear strength):
+    Paragraph 4 — LOSING SECTION CONSOLATION (optional, only if the losing section has a clear strength):
 If the losing section is genuinely better for a DIFFERENT type of business, briefly say so with a number."""
 
 
@@ -528,35 +531,37 @@ def prompt_revenue(prediction: dict, user_business: str | None, user_message: st
     budget_block = f"\nBUDGET: {budget_str}\n" if budget_str else ""
 
     return f"""{ADVISOR_PERSONA}
-{budget_block}
-=== {section} GEOSPATIAL DATA ===
-{profile}
+    {budget_block}
+    === {section} GEOSPATIAL DATA ===
+    {profile}
 
-=== REVENUE / FINANCIAL ANALYSIS TASK ===
-The entrepreneur wants to understand the revenue potential of running {biz_str} in {section}.
+    === REVENUE / FINANCIAL ANALYSIS TASK ===
+    CRITICAL: The entrepreneur is asking about {biz_str} ONLY.
+    Do NOT analyse any other business type. Every paragraph must be about {biz_str} specifically.
+    The entrepreneur wants to understand the revenue potential of running {biz_str} in {section}.
 
-=== OUTPUT (3–4 paragraphs, no headers) ===
+    === OUTPUT (3–4 paragraphs, no headers) ===
 
-IMPORTANT RULE: You are a business advisor, not an accountant. Do NOT give exact RM figures for revenue as a guarantee.
-Instead, reason about revenue POTENTIAL using the actual data counts as proxies for demand.
+    IMPORTANT RULE: You are a business advisor, not an accountant. Do NOT give exact RM figures for revenue as a guarantee.
+    Instead, reason about revenue POTENTIAL using the actual data counts as proxies for demand.
 
-Paragraph 1 — DEMAND POTENTIAL:
-Assess how strong the customer demand signals are for {biz_str} in {section} using actual data counts.
-Population = {s_data.get("population", "N/A")} residents, which sets the theoretical addressable market.
-State whether the demand signals are strong, moderate, or weak — and why, using specific numbers.
+    Paragraph 1 — DEMAND POTENTIAL:
+    Assess how strong the customer demand signals are for {biz_str} in {section} using actual data counts.
+    Population = {s_data.get("population", "N/A")} residents, which sets the theoretical addressable market.
+    State whether the demand signals are strong, moderate, or weak — and why, using specific numbers.
 
-Paragraph 2 — REVENUE DRIVERS:
-Which specific data signals (with actual counts) are the strongest positive drivers for revenue here?
-Explain the logical link: e.g. high corporate_office count → weekday lunch demand → higher average spend per customer.
+    Paragraph 2 — REVENUE DRIVERS:
+    Which specific data signals (with actual counts) are the strongest positive drivers for revenue here?
+    Explain the logical link: e.g. high corporate_office count → weekday lunch demand → higher average spend per customer.
 
-Paragraph 3 — REVENUE RISKS:
-Which data signals suggest revenue risk or a ceiling? Use actual counts.
-E.g. existing competition (high food_beverage count = crowded market), low footfall signals, etc.
+    Paragraph 3 — REVENUE RISKS:
+    Which data signals suggest revenue risk or a ceiling? Use actual counts.
+    E.g. existing competition (high food_beverage count = crowded market), low footfall signals, etc.
 
-Paragraph 4 — REALISTIC OUTLOOK:
-Give a realistic narrative (not exact numbers) on revenue potential: is this section likely to support a
-sustainable {biz_str if user_business else "business"}? What would need to be true for it to thrive?
-{"If budget was mentioned (" + budget_str + "), factor in capital efficiency." if budget_str else ""}"""
+    Paragraph 4 — REALISTIC OUTLOOK:
+    Give a realistic narrative (not exact numbers) on revenue potential: is this section likely to support a
+    sustainable {biz_str if user_business else "business"}? What would need to be true for it to thrive?
+    {"If budget was mentioned (" + budget_str + "), factor in capital efficiency." if budget_str else ""}"""
 
 
 def prompt_find_section(business_type: str, top_sections: list[dict]) -> str:
@@ -608,6 +613,8 @@ def prompt_general_advice(user_message: str, section: str | None = None,
 Answer the user's business question directly and specifically.
 If the question is about Shah Alam, use your knowledge of the area and the geospatial data if provided.
 If the question is generic business advice, give a sharp, practical answer in 2–3 paragraphs.
+IMPORTANT: Only use facts you are certain about. Do NOT invent specific student counts, revenue figures,
+rental prices, or population numbers that are not in the geospatial data provided above.
 If you genuinely cannot give a specific answer without a section number, say so clearly and ask:
 "To give you a data-backed answer, which section in Shah Alam are you considering?" — but only if truly needed.
 Do NOT list section names. Do NOT be vague. Do NOT give a generic MBA textbook answer.
@@ -616,7 +623,6 @@ Give real, actionable advice as a local business advisor would."""
 
 # ── Find best sections for a business type ───────────────────────────────────
 def find_best_sections_for_business(business_type: str, top_n: int = 5) -> list[dict]:
-    """Return top N sections with their full prediction data, scored by relevance to business_type."""
     if dataset is None:
         return []
     results = []
@@ -625,7 +631,6 @@ def find_best_sections_for_business(business_type: str, top_n: int = 5) -> list[
         pred = predict_for_section(section_name)
         if pred:
             results.append(pred)
-    # Return all sections (Gemini will pick the best ones from the data)
     return results
 
 
@@ -679,7 +684,7 @@ def build_predefined_response(intent: str, text: str) -> str:
             listed = ", ".join(sections)
             return f"Shah Alam has **{len(sections)} sections**:\n\n{listed}"
         return "Section data is not loaded yet."
-    return None  # signal caller to use Gemini for general_advice
+    return None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -701,12 +706,10 @@ def recommend():
     user_business = extract_user_business(message)
     generic_biz   = extract_generic_business_query(message)
 
-    # ── 1. Simple predefined intents ─────────────────────────────────────────
     predefined = build_predefined_response(intent, message)
     if predefined is not None:
         return jsonify({"type": "info", "message": predefined})
 
-    # ── 2. Compare two sections ───────────────────────────────────────────────
     if intent == "compare" and len(sections) >= 2:
         predictions = [predict_for_section(s) for s in sections[:3]]
         predictions = [p for p in predictions if p]
@@ -719,12 +722,11 @@ def recommend():
             return jsonify({
                 "type":       "comparison",
                 "message":    nlg_text,
-                "prediction": predictions[0],  # primary section for the right panel
+                "prediction": predictions[0],
             })
         return jsonify({"type": "error",
                         "message": "I couldn't find data for those sections. Please check the section names."})
 
-    # ── 3. Revenue / financial question for a specific section ────────────────
     if intent == "revenue" and section:
         prediction = predict_for_section(section)
         if prediction:
@@ -741,7 +743,6 @@ def recommend():
                 "prediction": prediction,
             })
 
-    # ── 4. Evaluate user's own business idea ──────────────────────────────────
     if intent == "evaluate" and section and user_business:
         prediction = predict_for_section(section)
         if prediction:
@@ -752,14 +753,14 @@ def recommend():
                             f"The data most strongly supports **{prediction['predicted_type']}** here. "
                             f"Ask me to compare or get a full recommendation.")
             return jsonify({
-                "type":       "evaluation",
-                "message":    nlg_text,
-                "prediction": prediction,
+                "type":         "evaluation",
+                "message":      nlg_text,
+                "prediction":   prediction,
+                "user_business": user_business,   
             })
         return jsonify({"type": "error",
                         "message": f"I don't have data for **{section}**. Please check the section name."})
 
-    # ── 5. Standard section recommendation ───────────────────────────────────
     if intent == "recommend" and section:
         prediction = predict_for_section(section)
         if prediction:
@@ -777,7 +778,6 @@ def recommend():
         return jsonify({"type": "error",
                         "message": f"I don't have data for **{section}**. Please check the section name."})
 
-    # ── 6. Find best sections for a specific business type ────────────────────
     if intent == "find_section" and generic_biz:
         all_predictions = find_best_sections_for_business(generic_biz)
         if all_predictions:
@@ -789,19 +789,11 @@ def recommend():
             return jsonify({"type": "find_section", "message": nlg_text})
         return jsonify({"type": "error", "message": "Could not load section data."})
 
-    # ── 7. Business mentioned but no section — ask to clarify ─────────────────
     if intent == "clarify_section":
-        biz_hint = user_business or "that type of business"
-        prediction = None
-        nlg_text = None
-
-        # If there's any section context, try to pull data for context
-        if section:
-            prediction = predict_for_section(section)
-
-        prompt   = prompt_general_advice(message, section, prediction)
-        nlg_text = _call_gemini(prompt)
-
+        biz_hint   = user_business or "that type of business"
+        prediction = predict_for_section(section) if section else None
+        prompt     = prompt_general_advice(message, section, prediction)
+        nlg_text   = _call_gemini(prompt)
         if not nlg_text:
             nlg_text = (
                 f"Great question about **{biz_hint}**! To give you a data-backed answer, "
@@ -809,13 +801,8 @@ def recommend():
                 f"For example: *'Is a {biz_hint} good for Section 7?'* or "
                 f"*'Which section is best for a {biz_hint}?'*"
             )
-        return jsonify({
-            "type":       "clarify",
-            "message":    nlg_text,
-            "prediction": prediction,
-        })
+        return jsonify({"type": "clarify", "message": nlg_text, "prediction": prediction})
 
-    # ── 8. General business advice (catch-all) ────────────────────────────────
     prediction = predict_for_section(section) if section else None
     prompt     = prompt_general_advice(message, section, prediction)
     nlg_text   = _call_gemini(prompt)
@@ -825,11 +812,7 @@ def recommend():
             "Try: *'What business for Section 7?'*, *'Which section is best for a café?'*, "
             "or *'Compare Section 9 vs Section 14 for a pharmacy.'*"
         )
-    return jsonify({
-        "type":       "advice",
-        "message":    nlg_text,
-        "prediction": prediction,
-    })
+    return jsonify({"type": "advice", "message": nlg_text, "prediction": prediction})
 
 
 @app.route("/api/model-stats")
@@ -872,13 +855,10 @@ def competitors():
     }
     place_type = TYPE_MAP.get(business_type, "establishment")
 
-    # Simplify keyword — strip adjectives, keep core noun (last 2 words)
-    # e.g. "Contemporary Fashion Boutique" → "Fashion Boutique"
-    #      "Specialty Electronics Store"   → "Electronics Store"
     def simplify_keyword(kw):
         words = kw.strip().split()
         if len(words) >= 3:
-            return " ".join(words[-2:])  # last 2 words = most specific
+            return " ".join(words[-2:])
         return kw
 
     search_keyword = simplify_keyword(keyword) if keyword else ""
@@ -887,11 +867,7 @@ def competitors():
         search_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
         def do_search(radius):
-            params = {
-                "location": f"{lat},{lng}",
-                "radius":   radius,
-                "key":      MAPS_KEY,
-            }
+            params = {"location": f"{lat},{lng}", "radius": radius, "key": MAPS_KEY}
             if search_keyword:
                 params["keyword"] = search_keyword
             else:
@@ -901,37 +877,26 @@ def competitors():
         data = do_search(1000)
         print(f"[Competitors] status={data.get('status')} results={len(data.get('results',[]))} keyword='{search_keyword}' radius=1000")
 
-        # Fallback: if fewer than 3 results, try wider radius
         if len(data.get("results", [])) < 3:
             data2 = do_search(2000)
-            print(f"[Competitors] fallback radius=2000 results={len(data2.get('results',[]))}")
             if len(data2.get("results", [])) > len(data.get("results", [])):
                 data = data2
 
-        # Second fallback: if still empty, use business type instead of keyword
         if len(data.get("results", [])) == 0 and search_keyword:
-            data3 = do_search(2000)
-            data3_params = {
-                "location": f"{lat},{lng}",
-                "radius":   2000,
-                "type":     place_type,
-                "key":      MAPS_KEY,
-            }
+            data3_params = {"location": f"{lat},{lng}", "radius": 2000, "type": place_type, "key": MAPS_KEY}
             data3 = http_requests.get(search_url, params=data3_params, timeout=8).json()
-            print(f"[Competitors] type fallback results={len(data3.get('results',[]))}")
             if len(data3.get("results", [])) > 0:
                 data = data3
+
         results = []
         for place in data.get("results", [])[:limit]:
             photo_url = None
-            photos    = place.get("photos", [])
+            photos = place.get("photos", [])
             if photos:
                 ref = photos[0].get("photo_reference", "")
                 if ref:
-                    photo_url = (
-                        f"https://maps.googleapis.com/maps/api/place/photo"
-                        f"?maxwidth=400&photo_reference={ref}&key={MAPS_KEY}"
-                    )
+                    photo_url = (f"https://maps.googleapis.com/maps/api/place/photo"
+                                 f"?maxwidth=400&photo_reference={ref}&key={MAPS_KEY}")
             results.append({
                 "name":          place.get("name", ""),
                 "address":       place.get("vicinity", ""),
@@ -941,11 +906,77 @@ def competitors():
                 "photo_url":     photo_url,
                 "place_id":      place.get("place_id", ""),
             })
-
         return jsonify({"results": results, "business_type": business_type})
 
     except Exception as e:
         print(f"[Competitors API Error] {e}")
+        return jsonify({"error": str(e), "results": []})
+
+
+# ── NEW: Demand sources for evaluation responses ──────────────────────────────
+@app.route("/api/demand-sources")
+def demand_sources():
+    MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+    if not MAPS_KEY:
+        return jsonify({"error": "Google Maps API key not set", "results": []})
+
+    lat     = request.args.get("lat", type=float)
+    lng     = request.args.get("lng", type=float)
+    section = request.args.get("section", "")
+
+    if not lat or not lng:
+        return jsonify({"error": "lat and lng required", "results": []})
+
+    # Each tuple: (search keyword, display category, emoji)
+    DEMAND_QUERIES = [
+        ("university",      "University",       "🎓"),
+        ("college",         "College",          "🎓"),
+        ("school",          "School",           "🏫"),
+        ("office building", "Corporate Office", "🏢"),
+        ("LRT station",     "Transit Station",  "🚉"),
+        ("hospital",        "Hospital",         "🏥"),
+        ("shopping mall",   "Shopping Mall",    "🛍️"),
+    ]
+
+    search_url  = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    all_results = []
+    seen_ids    = set()
+
+    try:
+        for keyword, category, emoji in DEMAND_QUERIES:
+            params = {
+                "location": f"{lat},{lng}",
+                "radius":   2500,
+                "keyword":  keyword,
+                "key":      MAPS_KEY,
+            }
+            data = http_requests.get(search_url, params=params, timeout=8).json()
+            for place in data.get("results", [])[:2]:   # max 2 per category
+                pid = place.get("place_id", "")
+                if pid in seen_ids:
+                    continue
+                seen_ids.add(pid)
+                photo_url = None
+                photos = place.get("photos", [])
+                if photos:
+                    ref = photos[0].get("photo_reference", "")
+                    if ref:
+                        photo_url = (f"https://maps.googleapis.com/maps/api/place/photo"
+                                     f"?maxwidth=400&photo_reference={ref}&key={MAPS_KEY}")
+                all_results.append({
+                    "name":      place.get("name", ""),
+                    "address":   place.get("vicinity", ""),
+                    "rating":    place.get("rating", None),
+                    "category":  category,
+                    "emoji":     emoji,
+                    "photo_url": photo_url,
+                    "place_id":  pid,
+                })
+
+        return jsonify({"results": all_results[:12], "section": section})
+
+    except Exception as e:
+        print(f"[Demand Sources API Error] {e}")
         return jsonify({"error": str(e), "results": []})
 
 

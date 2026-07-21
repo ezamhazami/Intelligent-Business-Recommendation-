@@ -90,7 +90,6 @@ def assign_label(row: dict, stats: dict) -> str:
     z_tran = zscore("transportation",  tran, stats)
 
     scores = {
-
         #1. Food & Beverage 
         # population = customer base size
         # food_beverage = proven food culture 
@@ -102,7 +101,6 @@ def assign_label(row: dict, stats: dict) -> str:
             z_corp * 0.8
             - max(0, z_auto) * 0.5
         ),
-
         # 2. Retail & Commerce 
         # mall is rarest feature = strongest signal when present
         # existing retail = shopping destination (agglomeration)

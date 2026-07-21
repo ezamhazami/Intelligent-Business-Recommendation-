@@ -28,9 +28,6 @@
         }
         body { background-color: var(--bg); color: var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
         .main { flex:1; display:flex; gap:18px; padding:16px 32px 20px; max-width:2000px; width:100%; margin:0 auto; min-height:0; }
-        .navigation { display:flex; align-items:center; gap:30px; }
-        .navigation a { color:white; text-decoration:none; font-weight:500; font-size:16px; padding:10px 20px; border-radius:25px; transition:all 0.3s ease; position:relative; overflow:hidden; }
-        .navigation a:hover { background:rgba(255,255,255,0.1); transform:translateY(-2px); }
 
         /* CHAT PANEL */
         .chat-wrap { flex:2; background:var(--sand-dim); border-radius:var(--radius); border:1px solid oklch(0.85 0.02 140); backdrop-filter:blur(8px); display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; box-shadow:0 4px 28px oklch(0.36 0.05 140 / 0.08); }
@@ -53,7 +50,7 @@
         .bubble em { color:var(--gold); font-style:normal; font-weight:600; }
         .bubble p + p { margin-top:8px; }
 
-        /* Competitor cards */
+        /* Competitor / demand cards */
         .competitor-section { margin-top:12px; border-top:1px solid oklch(0.85 0.02 140); padding-top:10px; }
         .competitor-label { font-size:0.68rem; font-weight:700; letter-spacing:0.08em; color:var(--muted); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
         .competitor-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; scrollbar-width:none; }
@@ -66,6 +63,10 @@
         .comp-open { position:absolute; top:7px; left:7px; font-size:0.6rem; font-weight:700; padding:3px 8px; border-radius:20px; }
         .comp-open.open   { background:oklch(0.35 0.12 150); color:white; }
         .comp-open.closed { background:oklch(0.35 0.1 25);  color:white; }
+
+        /* Demand source badge (replaces open/closed) */
+        .comp-category-badge { position:absolute; top:7px; left:7px; font-size:0.6rem; font-weight:700; padding:3px 8px; border-radius:20px; background:oklch(0.36 0.05 140 / 0.85); color:white; }
+
         .comp-info { padding:9px 10px 10px; }
         .comp-name { font-size:0.74rem; font-weight:600; color:var(--text); overflow:hidden; max-height:2.5em; line-height:1.25em; margin-bottom:4px; }
         .comp-rating { font-size:0.68rem; color:var(--text); font-weight:500; margin-bottom:3px; display:flex; align-items:center; gap:3px; }
@@ -73,7 +74,6 @@
         .comp-address { font-size:0.62rem; color:var(--muted); overflow:hidden; max-height:2.4em; line-height:1.2em; }
         .comp-loading { font-size:0.72rem; color:var(--muted); padding:6px 0; display:flex; align-items:center; gap:6px; }
 
-        /* Biz block separator */
         .biz-block { border-top:1px dashed oklch(0.85 0.02 140); padding-top:10px; margin-top:10px; }
         .biz-block:first-of-type { border-top:none; margin-top:0; }
 
@@ -141,14 +141,6 @@
                     <h1 style="color:var(--gold)" class="font-semibold text-lg">AI Shah Alam Business Advisor</h1>
                     <p class="text-white text-s flex items-center gap-1">📍 Your go-to Business Advisor</p>
                 </div>
-            </div>
-            <div class="flex mr-20">
-                <nav class="navigation">
-                    <a href="/">Find Tutor</a>
-                    <a href="/">AI Academic Assistance</a>
-                    <a href="/">Study Resources</a>
-                    <a href="/">Tutor Match</a>
-                </nav>
             </div>
         </div>
         <div class="main">
@@ -236,33 +228,23 @@
                 .replace(/\n/g,'<br>');
         }
 
-        // Parse [BUSINESS_X] and [SEARCH_X] tags from Gemini response
         function parseBlocks(text) {
-            const bizRe    = /\[BUSINESS_\d+:\s*([^\]]+)\]/g;
             const searchRe = /\[SEARCH_\d+:\s*([^\]]+)\]/g;
-
-            // Collect all SEARCH tags first
             const searchMap = {};
-            let sm;
-            let searchIdx = 1;
+            let sm, searchIdx = 1;
             while ((sm = searchRe.exec(text)) !== null) {
                 searchMap[searchIdx++] = sm[1].trim();
             }
-
-            // Remove all SEARCH tags from text before parsing blocks
             const cleanText = text.replace(/\[SEARCH_\d+:[^\]]+\]/g, '').replace(/\n{3,}/g, '\n\n');
-
             const parts = [];
             const first = cleanText.search(/\[BUSINESS_\d+:/);
             if (first === -1) { parts.push({type:'intro', text: cleanText.trim()}); return parts; }
             if (first > 0) parts.push({type:'intro', text: cleanText.slice(0, first).trim()});
-
-            let m;
-            let bizIdx = 1;
+            let m, bizIdx = 1;
             const tagRe = /\[BUSINESS_\d+:\s*([^\]]+)\]/g;
             while ((m = tagRe.exec(cleanText)) !== null) {
                 const name    = m[1].trim();
-                const keyword = searchMap[bizIdx] || name.split(' ').slice(-2).join(' '); // fallback: last 2 words
+                const keyword = searchMap[bizIdx] || name.split(' ').slice(-2).join(' ');
                 const s       = m.index + m[0].length;
                 const next    = cleanText.indexOf('[BUSINESS_', s);
                 parts.push({
@@ -276,6 +258,7 @@
             return parts;
         }
 
+        // ── Competitor cards (for recommend/comparison/revenue) ──────────────
         function buildCompHtml(results, name) {
             if (!results || results.length === 0) return '';
             const top4 = [...results].sort((a,b)=>(b.total_ratings||0)-(a.total_ratings||0)).slice(0,4);
@@ -301,7 +284,36 @@
                     </div>
                 </div>`;
             }).join('');
-            return `<div class="competitor-section"><div class="competitor-label">📍 Nearby Competitors for "${name}" · Google Maps</div><div class="competitor-row">${cards}</div></div>`;
+            return `<div class="competitor-section">
+                <div class="competitor-label">📍 Nearby Competitors for "${name}" · Google Maps</div>
+                <div class="competitor-row">${cards}</div>
+            </div>`;
+        }
+
+        // ── Demand source cards (for evaluation only) ────────────────────────
+        function buildDemandHtml(results, section) {
+            if (!results || results.length === 0) return '';
+            const cards = results.slice(0, 8).map(c => {
+                const stars = c.rating ? `<span class="star">⭐</span> ${c.rating}` : '';
+                const photoInner = c.photo_url
+                    ? `<img src="${c.photo_url}" alt="${c.name}" loading="lazy" onerror="this.parentElement.innerHTML='${c.emoji||'📍'}'">`
+                    : `${c.emoji || '📍'}`;
+                return `<div class="competitor-card">
+                    <div class="comp-photo-wrap">
+                        <div class="comp-photo">${photoInner}</div>
+                        <span class="comp-category-badge">${c.emoji || ''} ${c.category}</span>
+                    </div>
+                    <div class="comp-info">
+                        <div class="comp-name" title="${c.name}">${c.name}</div>
+                        ${stars ? `<div class="comp-rating">${stars}</div>` : ''}
+                        <div class="comp-address">${c.address}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            return `<div class="competitor-section">
+                <div class="competitor-label">🏙️ Potential Customer Sources Near ${section} · Google Maps</div>
+                <div class="competitor-row">${cards}</div>
+            </div>`;
         }
 
         async function fetchComp(section, keyword) {
@@ -310,6 +322,17 @@
             const [lat, lng] = coords;
             try {
                 const res  = await fetch(`/api/competitors?lat=${lat}&lng=${lng}&keyword=${encodeURIComponent(keyword)}&limit=8`);
+                const data = await res.json();
+                return data.results || [];
+            } catch { return null; }
+        }
+
+        async function fetchDemandSources(section) {
+            const coords = SECTION_COORDS[section];
+            if (!coords) return null;
+            const [lat, lng] = coords;
+            try {
+                const res  = await fetch(`/api/demand-sources?lat=${lat}&lng=${lng}&section=${encodeURIComponent(section)}`);
                 const data = await res.json();
                 return data.results || [];
             } catch { return null; }
@@ -398,12 +421,37 @@
 
                 const raw = data.message || 'Sorry, I could not process that.';
 
+                // ── EVALUATION: show demand sources instead of competitors ────
+                if (data.type === 'evaluation' && data.prediction && data.prediction.section) {
+                    const pred    = data.prediction;
+                    const section = pred.section;
+                    const html    = `<p>${renderMarkdown(raw)}</p>
+                        <div id="demand-sources-wrap">
+                            <div class="competitor-section">
+                                <div class="competitor-label">🏙️ Loading potential customer sources nearby…</div>
+                                <div class="comp-loading"><div class="typing"><span></span><span></span><span></span></div></div>
+                            </div>
+                        </div>`;
+                    const msgEl = addBotMsg(html);
+                    renderRecPanel(pred);
+
+                    const wrap = msgEl.querySelector('#demand-sources-wrap');
+                    try {
+                        const results = await fetchDemandSources(section);
+                        wrap.innerHTML = (results && results.length > 0)
+                            ? buildDemandHtml(results, section)
+                            : '';
+                    } catch { wrap.innerHTML = ''; }
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                    return;
+                }
+
+                // ── ALL OTHER types with prediction: show competitor cards ────
                 if (data.prediction && data.prediction.section) {
                     const pred    = data.prediction;
                     const section = pred.section;
                     const blocks  = parseBlocks(raw);
 
-                    // Build bubble with loading placeholders per biz block
                     let html = '';
                     blocks.forEach((b, idx) => {
                         if (b.type === 'intro') {
@@ -425,11 +473,10 @@
                     const msgEl = addBotMsg(html);
                     renderRecPanel(pred);
 
-                    // Fetch competitors per business in parallel
                     const bizBlocks = blocks.filter(b => b.type === 'business');
                     await Promise.all(bizBlocks.map(async (b) => {
-                        const idx   = blocks.indexOf(b);
-                        const wrap  = msgEl.querySelector(`#comp-${idx}`);
+                        const idx  = blocks.indexOf(b);
+                        const wrap = msgEl.querySelector(`#comp-${idx}`);
                         if (!wrap) return;
                         try {
                             const results = await fetchComp(section, b.keyword || b.name);
